@@ -31,8 +31,8 @@ void start_edge_server(edge_server *server_config) {
 }
 
 void *edge_thread (void* p) {
-    int w_id = *((int *) p);
     #ifdef DEBUG
+    int w_id = *((int *) p);
     printf("I'm a thread | My power is %d!\n", w_id);
     #endif
     // TODO: Insert thread logic here
