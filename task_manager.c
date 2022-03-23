@@ -12,12 +12,9 @@ void task_manager(prog_config *config) {
     int i;
     handle_log("INFO: Started Task Manager");
 
-    printf("Server number: %d\n", config->edge_server_number);
-    
     //Create 
     for (i = 0; i < config->edge_server_number; i++) {
         // fork() == 0 => Child
-        printf("\tI = %d\n", config->servers[i].v_cpu1);
         if (fork() == 0) {
             start_edge_server(&config->servers[i]);
         }
