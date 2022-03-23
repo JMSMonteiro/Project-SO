@@ -4,7 +4,7 @@
 #include <semaphore.h>
 #include <string.h>
 #include <unistd.h>
-#include "main.h"
+#include "system_manager.h"
 #include "logger.h"
 
 // Defines Below 
@@ -19,7 +19,26 @@ int main() {
 
     load_config();
 
-    // handle_log("THIS IS A TEST");
+    // TODO: [Final] Create "named pipe" => TASK_PIPE 
+
+    // ! Important
+    // TODO: [Intermediate] Create process <=> Task Manager
+
+    // ! Important
+    // TODO: [Intermediate] Create process <=> Monitor 
+
+    // ! Important
+    // TODO: [Intermediate] Create process <=> Maintenance Manager 
+
+    // TODO: [Final] Create Message Queue
+
+    // ! Important
+    // TODO: [Intermediate] Create Shared Memory
+
+    // TODO: [Final] Catch SIGSTP & Print Stats
+
+    // TODO: [Final] Catch SIGINT to finish program
+
     
     return 0;
 }

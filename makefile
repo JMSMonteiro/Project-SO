@@ -1,8 +1,8 @@
 
 FLAGS	= -g -Wall -pthread
 CC		= gcc
-PROG	= program.out
-OBJS	= main.o logger.o
+PROG	= offload_simulator.out
+OBJS	= system_manager.o logger.o
 
 all:	${PROG}
 
@@ -17,8 +17,7 @@ ${PROG}:	${OBJS}
 
 ##################
 
-main.o:	main.h logger.h main.c
+system_manager.o:	system_manager.c system_manager.h logger.h 
 
-logger.o: logger.h logger.c
+logger.o:	logger.h logger.c
 
-program:	main.o 
