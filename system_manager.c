@@ -8,27 +8,41 @@
 #include "logger.h"
 
 // Defines Below 
-#define DEBUG   // Remove/Comment this line to remove debug messages
+// #define DEBUG   // Remove/Comment this line to remove debug messages
 
 // Variables Below
 prog_config *program_configuration;
 
 
 int main() {
-    handle_log("Offload Simulator Starting");
+    handle_log("INFO: Offload Simulator Starting");
 
     load_config();
 
     // TODO: [Final] Create "named pipe" => TASK_PIPE 
 
-    // ! Important
-    // TODO: [Intermediate] Create process <=> Task Manager
+    // fork() == 0 => Child process 
+    if (fork() == 0) {
+        // ! Important
+        // TODO: [Intermediate] Create process <=> Task Manager
+        handle_log("INFO: Creating Process: 'Task Manager'");
+        exit(0);
+    }
 
-    // ! Important
-    // TODO: [Intermediate] Create process <=> Monitor 
+    if (fork() == 0) {
+        // ! Important
+        // TODO: [Intermediate] Create process <=> Monitor 
+        handle_log("INFO: Creating Process: 'Monitor'");
+        exit(0);
+    }
 
-    // ! Important
-    // TODO: [Intermediate] Create process <=> Maintenance Manager 
+    if (fork() == 0) {
+        // ! Important
+        // TODO: [Intermediate] Create process <=> Maintenance Manager 
+        handle_log("INFO: Creating Process: 'Maintnance Manager'");
+        exit(0);
+    }
+
 
     // TODO: [Final] Create Message Queue
 
@@ -39,7 +53,7 @@ int main() {
 
     // TODO: [Final] Catch SIGINT to finish program
 
-    
+    // ? Insert monitor call here ?
     return 0;
 }
 
