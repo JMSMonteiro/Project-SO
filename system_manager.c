@@ -54,6 +54,11 @@ int main() {
     // TODO: [Final] Catch SIGINT to finish program
 
     // ? Insert monitor call here ?
+
+    // ! REMOVE LATER
+    wait(NULL);
+    wait(NULL);
+    wait(NULL);
     return 0;
 }
 
