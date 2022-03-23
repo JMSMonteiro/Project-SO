@@ -4,8 +4,11 @@
 #include <semaphore.h>
 #include <string.h>
 #include <unistd.h>
+#include <wait.h>
 #include "system_manager.h"
 #include "logger.h"
+#include "task_manager.h"
+
 
 // Defines Below 
 // #define DEBUG   // Remove/Comment this line to remove debug messages
@@ -26,6 +29,7 @@ int main() {
         // ! Important
         // TODO: [Intermediate] Create process <=> Task Manager
         handle_log("INFO: Creating Process: 'Task Manager'");
+        task_manager(program_configuration);
         exit(0);
     }
 
@@ -92,6 +96,11 @@ void load_config() {
     fscanf(qPtr, "%d\n", &program_configuration->queue_pos);
     fscanf(qPtr, "%d\n", &program_configuration->max_wait);
     fscanf(qPtr, "%d\n", &program_configuration->edge_server_number);
+
+    if (program_configuration->edge_server_number < 2) {
+        handle_log("ERROR: Config file - Edge Server number must be >= 2");
+        exit(-1);
+    }
 
     // Allocate memory for servers inside 
     program_configuration->servers = malloc(program_configuration->edge_server_number * sizeof(edge_server));
