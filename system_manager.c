@@ -39,7 +39,7 @@ int main() {
     if (fork() == 0) {
         // ! Important
         // TODO: [Intermediate] Create process <=> Maintenance Manager 
-        handle_log("INFO: Creating Process: 'Maintnance Manager'");
+        handle_log("INFO: Creating Process: 'Maintenance Manager'");
         exit(0);
     }
 
