@@ -11,7 +11,6 @@
 
 
 // Defines Below 
-// #define DEBUG   // Remove/Comment this line to remove debug messages
 
 // Variables Below
 prog_config *program_configuration;

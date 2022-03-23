@@ -1,5 +1,5 @@
-#ifndef task_manager_h__
-#define task_manager_h__
+#ifndef _task_manager_h__
+#define _task_manager_h__
 
 #include "system_manager.h"
 

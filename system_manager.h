@@ -1,7 +1,9 @@
-#ifndef main_h__
-#define main_h__
+#ifndef _system_manager_h__
+#define _system_manager_h__
 
 #include <stdlib.h>
+
+// #define DEBUG   // Remove/Comment this line to remove debug messages
 
 typedef struct {
     char name[64];

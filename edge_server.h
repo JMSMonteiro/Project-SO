@@ -1,5 +1,5 @@
-#ifndef edge_server_h__
-#define edge_server_h__
+#ifndef _edge_server_h__
+#define _edge_server_h__
 
 #include "system_manager.h"
 
