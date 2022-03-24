@@ -9,7 +9,7 @@ MOBILE_DEP	= mobile_node.o
 all:	${SIMULATOR} ${MOBILE}
 
 clean:
-	rm ${OBJS} *~ ${SIMULATOR}
+	rm ${OBJS} ${MOBILE_DEP} *~ ${SIMULATOR} ${MOBILE}
 
 ${SIMULATOR}:	${OBJS}
 	${CC} ${FLAGS} ${OBJS} -o $@
