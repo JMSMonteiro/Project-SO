@@ -1,3 +1,4 @@
+# José Miguel Saraiva Monteiro - 2015235572
 
 FLAGS	= -g -Wall -pthread
 CC		= gcc

@@ -1,3 +1,5 @@
+// José Miguel Saraiva Monteiro - 2015235572
+
 #include "mobile_node.h"
 #include "system_manager.h"
 #include <stdio.h>

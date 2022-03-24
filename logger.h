@@ -1,3 +1,5 @@
+// José Miguel Saraiva Monteiro - 2015235572
+
 #ifndef _logger_h__
 #define _logger_h__
 

@@ -1,3 +1,5 @@
+// José Miguel Saraiva Monteiro - 2015235572
+
 #include "edge_server.h"
 #include "logger.h"
 #include "system_manager.h"

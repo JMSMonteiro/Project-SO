@@ -1,3 +1,5 @@
+// José Miguel Saraiva Monteiro - 2015235572
+
 #ifndef _system_manager_h__
 #define _system_manager_h__
 

@@ -1,3 +1,5 @@
+// José Miguel Saraiva Monteiro - 2015235572
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>

@@ -1,3 +1,5 @@
+// José Miguel Saraiva Monteiro - 2015235572
+
 #ifndef _edge_server_h__
 #define _edge_server_h__
 
