@@ -8,6 +8,8 @@
 #include "system_manager.h"
 #include "logger.h"
 #include "task_manager.h"
+#include "monitor.h"
+#include "maintenance_manager.h"
 
 
 // Defines Below 
@@ -42,6 +44,7 @@ int main(int argc, char* argv[]) {
         // ! Important
         // TODO: [Intermediate] Create process <=> Monitor 
         handle_log("INFO: Creating Process: 'Monitor'");
+        monitor();
         exit(0);
     }
 
@@ -49,6 +52,7 @@ int main(int argc, char* argv[]) {
         // ! Important
         // TODO: [Intermediate] Create process <=> Maintenance Manager 
         handle_log("INFO: Creating Process: 'Maintenance Manager'");
+        maintenance_manager();
         exit(0);
     }
 

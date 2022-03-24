@@ -12,7 +12,7 @@ pthread_t scheduler_id;
 
 void task_manager(prog_config *config) {
     int i;
-    handle_log("INFO: Started Task Manager");
+    handle_log("INFO: Task Manager Started");
 
     //Create 
     for (i = 0; i < config->edge_server_number; i++) {
