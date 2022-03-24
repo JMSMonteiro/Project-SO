@@ -8,6 +8,8 @@
 #include "logger.h"
 #include "edge_server.h"
 
+pthread_t scheduler_id;
+
 void task_manager(prog_config *config) {
     int i;
     handle_log("INFO: Started Task Manager");
@@ -23,8 +25,17 @@ void task_manager(prog_config *config) {
             exit(0);
         }
     }
+    
+    pthread_create(&scheduler_id, NULL, scheduler, 0);
+
+    pthread_join(scheduler_id, NULL);
     // while (1) {
 
     // }
     exit(0);
+}
+
+void* scheduler(void *p) {
+    handle_log("INFO: Scheduler Started");
+    pthread_exit(NULL);
 }

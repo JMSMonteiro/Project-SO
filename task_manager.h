@@ -4,5 +4,6 @@
 #include "system_manager.h"
 
 void task_manager(prog_config *config);
+void *scheduler(void* p);
 
 #endif
