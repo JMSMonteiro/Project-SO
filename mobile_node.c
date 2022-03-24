@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
     max_execute_time = atoi(argv[4]);
 
     if (!request_number || !request_interval || !request_instructions || !max_execute_time) {
-        bad_arguments("Arguments cannot be null!");
+        bad_arguments("Invalid param!");
         exit(-1);
     }
     #ifdef DEBUG
