@@ -1,16 +1,21 @@
 
 FLAGS	= -g -Wall -pthread
 CC		= gcc
-PROG	= offload_simulator.out
+SIMULATOR	= offload_simulator.out
+MOBILE	= mobile_node.out
 OBJS	= system_manager.o logger.o task_manager.o edge_server.o
+MOBILE_DEP	= mobile_node.o
 
-all:	${PROG}
+all:	${SIMULATOR} ${MOBILE}
 
 clean:
-	rm ${OBJS} *~ ${PROG}
+	rm ${OBJS} *~ ${SIMULATOR}
 
-${PROG}:	${OBJS}
+${SIMULATOR}:	${OBJS}
 	${CC} ${FLAGS} ${OBJS} -o $@
+
+${MOBILE}:	${MOBILE_DEP}
+	${CC} ${FLAGS} ${MOBILE_DEP} -o $@
 
 .c.o:
 	${CC} ${FLAGS} -c $< -o $@
@@ -24,4 +29,6 @@ task_manager.o: task_manager.c task_manager.h system_manager.h  logger.h edge_se
 edge_server.o: edge_server.c edge_server.h system_manager.h
 
 logger.o:	logger.h logger.c
+
+mobile_node.o: mobile_node.c mobile_node.h
 
