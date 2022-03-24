@@ -18,6 +18,6 @@ typedef struct {
     edge_server *servers;
 } prog_config;
 
-void load_config();
+void load_config(char *file_name);
 
 #endif

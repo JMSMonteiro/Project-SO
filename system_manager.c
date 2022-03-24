@@ -16,10 +16,16 @@
 prog_config *program_configuration;
 
 
-int main() {
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        printf("Bad command\n");
+        printf("Correct command usage:\n$ offload_simulator {ficheiro_configuração}\n");
+        exit(-1);
+    }
+
     handle_log("INFO: Offload Simulator Starting");
 
-    load_config();
+    load_config(argv[1]);
 
     // TODO: [Final] Create "named pipe" => TASK_PIPE 
 
@@ -65,10 +71,9 @@ int main() {
     return 0;
 }
 
-void load_config() {
+void load_config(char *file_name) {
     FILE *qPtr;
     int i;
-    char *file_name = "config.txt";
     char line[64];
     char *word = NULL;
 
@@ -86,6 +91,7 @@ void load_config() {
     // Open file
     if ((qPtr = fopen(file_name, "r")) == 0) {
         perror("Error opening Config file\n");
+        exit(-1);
     }
 
     // Allocate memory for config struct
