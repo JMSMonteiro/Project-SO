@@ -29,11 +29,11 @@ int main(int argc, char* argv[]) {
         bad_arguments("Invalid param!");
         exit(-1);
     }
-    #ifdef DEBUG
+    // #ifdef DEBUG
     printf("I'm a mobile node!\nMy input params are as follow:\n");
     printf("req_number = %d\nreq_interval = %d\n", request_number, request_interval);
     printf("req_instructions = %d\nmax_exec_time = %d\n", request_instructions, max_execute_time);
-    #endif
+    // #endif
     return 0;
 }
 
