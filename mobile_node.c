@@ -31,8 +31,8 @@ int main(int argc, char* argv[]) {
     }
     // #ifdef DEBUG
     printf("I'm a mobile node!\nMy input params are as follow:\n");
-    printf("req_number = %d\nreq_interval = %d\n", request_number, request_interval);
-    printf("req_instructions = %d\nmax_exec_time = %d\n", request_instructions, max_execute_time);
+    printf("req_number = %d\nreq_interval (ms) = %d\n", request_number, request_interval);
+    printf("req_instructions (MIPS) = %d\nmax_exec_time = %d\n", request_instructions, max_execute_time);
     // #endif
     return 0;
 }
