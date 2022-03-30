@@ -89,10 +89,11 @@ int main(int argc, char* argv[]) {
 
 void load_config(char *file_name) {
     FILE *qPtr;
-    int i;
+    int i = 0;
+    int validate_config = 0;
     char line[64];
     char *word = NULL;
-
+    
     /*
     * CONFIG INFO
     ? QUEUE_POS - número de slots na fila interna do Task Manager
@@ -114,9 +115,14 @@ void load_config(char *file_name) {
     program_configuration = malloc(sizeof(prog_config));
 
     // Read info from file
-    fscanf(qPtr, "%d\n", &program_configuration->queue_pos);
-    fscanf(qPtr, "%d\n", &program_configuration->max_wait);
-    fscanf(qPtr, "%d\n", &program_configuration->edge_server_number);
+    validate_config += fscanf(qPtr, "%d\n", &program_configuration->queue_pos);
+    validate_config += fscanf(qPtr, "%d\n", &program_configuration->max_wait);
+    validate_config += fscanf(qPtr, "%d\n", &program_configuration->edge_server_number);
+
+    if (validate_config < 3) {
+        perror("ERROR: Config file - Invalid value in {QUEUE_POS} | {MAX_WAIT} | {SERVER_NUMBER}. Check first three lines\n");
+        exit(-1);
+    }
 
     if (program_configuration->edge_server_number < 2) {
         handle_log("ERROR: Config file - Edge Server number must be >= 2");
@@ -143,6 +149,11 @@ void load_config(char *file_name) {
         word = strtok(NULL, ",");
         // Assign vCPU2 to it's variable
         program_configuration->servers[i].v_cpu2 = atoi(word);
+
+        if (program_configuration->servers[i].v_cpu1 == 0 
+            || program_configuration->servers[i].v_cpu2 == 0 ) {
+            handle_log("WARNING: Possible error in Server Configs");
+            }
     }
 
     #ifdef DEBUG
