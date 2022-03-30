@@ -4,6 +4,7 @@
 #define _system_manager_h__
 
 #include <stdlib.h>
+#include <semaphore.h>
 
 // #define DEBUG   // Remove/Comment this line to remove debug messages
 
@@ -19,6 +20,8 @@ typedef struct {
     int edge_server_number;
     edge_server *servers;
 } prog_config;
+
+extern sem_t *mutex_logger;
 
 void load_config(char *file_name);
 

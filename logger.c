@@ -4,10 +4,14 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <semaphore.h>
 
 #include "logger.h"
+#include "system_manager.h"
 
 #define LOG_FILE "log.txt"
+
+sem_t *mutex_logger;
 
 void handle_log(char message[]) {
     time_t seconds;
@@ -38,6 +42,8 @@ void _print_to_stderr(char message[]) {
 void _print_to_file(char message[]) {
     FILE *qPtr;
 
+    sem_wait(mutex_logger);
+
     if ((qPtr = fopen(LOG_FILE, "a")) == NULL) {
         perror("Error Opening File\n");
     }
@@ -45,4 +51,6 @@ void _print_to_file(char message[]) {
     fprintf(qPtr, "%s\n", message);
 
     fclose(qPtr);
+
+    sem_post(mutex_logger);
 }

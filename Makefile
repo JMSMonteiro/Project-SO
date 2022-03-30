@@ -29,7 +29,7 @@ task_manager.o: task_manager.c task_manager.h system_manager.h  logger.h edge_se
 
 edge_server.o: edge_server.c edge_server.h system_manager.h
 
-logger.o:	logger.h logger.c
+logger.o:	logger.h logger.c system_manager.h
 
 monitor.o: monitor.c monitor.h logger.h
 

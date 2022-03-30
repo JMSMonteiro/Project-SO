@@ -7,6 +7,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <wait.h>
+#include <semaphore.h>
+#include <fcntl.h>
 
 #include "system_manager.h"
 #include "logger.h"
@@ -25,6 +27,13 @@ int main(int argc, char* argv[]) {
     if (argc != 2) {
         printf("Bad command\n");
         printf("Correct command usage:\n$ offload_simulator {ficheiro_configuração}\n");
+        exit(-1);
+    }
+
+    // TODO: Semaphores / MUTEXES / Condition variables
+    sem_unlink("MUTEX_LOGGER");
+    if ((mutex_logger = sem_open("MUTEX_LOGGER", O_CREAT | O_EXCL, 0777, 1)) < 0) {
+        perror("sem_open() Error - MUTEX_LOGGER\n");
         exit(-1);
     }
 
