@@ -26,7 +26,9 @@ void handle_log(char message[]) {
     timeStruct = localtime(&seconds);
 
     // Convert time values to string stored in current_time
-    sprintf(current_time, "%02d:%02d:%02d ",timeStruct->tm_hour, timeStruct->tm_min, timeStruct->tm_sec);
+    sprintf(current_time, "%02d:%02d:%02d ", timeStruct->tm_hour, 
+                                            timeStruct->tm_min, 
+                                            timeStruct->tm_sec);
 
     strcat(full_log_message, current_time);
     strcat(full_log_message, message);
