@@ -2,8 +2,8 @@
 
 FLAGS	= -g -Wall -pthread
 CC		= gcc
-SIMULATOR	= offload_simulator.out
-MOBILE	= mobile_node.out
+SIMULATOR	= offload_simulator
+MOBILE	= mobile_node
 OBJS	= system_manager.o logger.o task_manager.o edge_server.o monitor.o maintenance_manager.o
 MOBILE_DEP	= mobile_node.o
 
