@@ -1,12 +1,13 @@
 // José Miguel Saraiva Monteiro - 2015235572
 
-#include "edge_server.h"
-#include "logger.h"
-#include "system_manager.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "edge_server.h"
+#include "logger.h"
+#include "system_manager.h"
 
 #define VCPU_NUMBER 2
 

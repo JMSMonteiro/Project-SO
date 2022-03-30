@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+
 #include "logger.h"
 
 #define LOG_FILE "log.txt"

@@ -1,10 +1,11 @@
 // José Miguel Saraiva Monteiro - 2015235572
 
-#include "mobile_node.h"
-#include "system_manager.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#include "mobile_node.h"
+#include "system_manager.h"
 
 // ? >> How to use mobile_node <<
 // ? $ mobile_node {nº pedidos a gerar} {intervalo entre pedidos em ms}
