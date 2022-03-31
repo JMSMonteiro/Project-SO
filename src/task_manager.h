@@ -5,7 +5,7 @@
 
 #include "system_manager.h"
 
-void task_manager(prog_config *config);
+void task_manager();
 void *scheduler(void* p);
 
 #endif

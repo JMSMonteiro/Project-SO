@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <string.h>
+#include <sys/shm.h>
 #include <unistd.h>
 #include <wait.h>
 #include <semaphore.h>
@@ -20,7 +21,10 @@
 // Defines Below 
 
 // Variables Below
+int shmid;
+key_t shmkey;
 prog_config *program_configuration;
+edge_server *servers;
 
 
 int main(int argc, char* argv[]) {
@@ -48,7 +52,7 @@ int main(int argc, char* argv[]) {
         // ! Important
         // TODO: [Intermediate] Create process <=> Task Manager
         handle_log("INFO: Creating Process: 'Task Manager'");
-        task_manager(program_configuration);
+        task_manager();
         exit(0);
     }
 
@@ -71,9 +75,6 @@ int main(int argc, char* argv[]) {
 
     // TODO: [Final] Create Message Queue
 
-    // ! Important
-    // TODO: [Intermediate] Create Shared Memory
-
     // TODO: [Final] Catch SIGSTP & Print Stats
 
     // TODO: [Final] Catch SIGINT to finish program
@@ -84,6 +85,10 @@ int main(int argc, char* argv[]) {
     wait(NULL);
     wait(NULL);
     wait(NULL);
+
+    // Clean memory resources
+    shmdt(program_configuration);
+    shmctl(shmid, IPC_RMID, NULL);
     return 0;
 }
 
@@ -93,6 +98,7 @@ void load_config(char *file_name) {
     int validate_config = 0;
     char line[64];
     char *word = NULL;
+    int queue_pos, max_wait, edge_server_number;
     
     /*
     * CONFIG INFO
@@ -111,26 +117,54 @@ void load_config(char *file_name) {
         exit(-1);
     }
 
-    // Allocate memory for config struct
-    program_configuration = malloc(sizeof(prog_config));
-
     // Read info from file
-    validate_config += fscanf(qPtr, "%d\n", &program_configuration->queue_pos);
-    validate_config += fscanf(qPtr, "%d\n", &program_configuration->max_wait);
-    validate_config += fscanf(qPtr, "%d\n", &program_configuration->edge_server_number);
+    validate_config += fscanf(qPtr, "%d\n", &queue_pos);
+    validate_config += fscanf(qPtr, "%d\n", &max_wait);
+    validate_config += fscanf(qPtr, "%d\n", &edge_server_number);
 
     if (validate_config < 3) {
         perror("ERROR: Config file - Invalid value in {QUEUE_POS} | {MAX_WAIT} | {SERVER_NUMBER}. Check first three lines\n");
         exit(-1);
     }
 
-    if (program_configuration->edge_server_number < 2) {
+    if (edge_server_number < 2) {
         handle_log("ERROR: Config file - Edge Server number must be >= 2");
         exit(-1);
     }
 
-    // Allocate memory for servers inside 
-    program_configuration->servers = malloc(program_configuration->edge_server_number * sizeof(edge_server));
+    // ! Important
+    // TODO: [Intermediate] Create Shared Memory
+    /*
+    * In struct prog_config, remove the field edge_server *servers
+    * Instead, create shared memory with: 
+    * size = sizeof(prog_config) + server_number * sizeof(edge_server) + {Insert aditional stuff needed}
+    */
+    
+    // Copied from factory_main.c PL4 Ex5
+    if ((shmkey = ftok(".", getpid())) == (key_t) -1){
+        perror("IPC error: ftok\n");
+        exit(1);
+    };
+    // End of copied code
+
+    shmid = shmget(shmkey, sizeof(prog_config) + sizeof(edge_server) * edge_server_number, IPC_CREAT | 0777);
+    if (shmid < 1) {
+        perror("Error Creating shared memory\n");
+        exit(1);
+    }
+
+    program_configuration = (prog_config *) shmat(shmid, NULL, 0);
+
+    program_configuration->queue_pos = queue_pos;
+    program_configuration->max_wait = max_wait;
+    program_configuration->edge_server_number = edge_server_number;
+
+    if (program_configuration < (prog_config*) 1) {
+        perror("Error attaching memory\n");
+        exit(1);
+    }
+
+    servers = (edge_server *) (program_configuration + 1);
 
     for (i = 0; i < program_configuration->edge_server_number; i++) {
         if (fgets(line, sizeof(line), qPtr) == NULL) {
@@ -139,33 +173,33 @@ void load_config(char *file_name) {
         // Read each line and divide it by the comma ","
         word = strtok(line, ",");
         // Copy first value (name) into it's respective var
-        strcpy(program_configuration->servers[i].name, word);
+        strcpy(servers[i].name, word);
         // Get the second value (vCPU1)
         word = strtok(NULL, ",");
         // Assign vCPU1 to it's variable
-        program_configuration->servers[i].v_cpu1 = atoi(word);
+        servers[i].v_cpu1 = atoi(word);
         
         // Get the third value (vCPU2)
         word = strtok(NULL, ",");
         // Assign vCPU2 to it's variable
-        program_configuration->servers[i].v_cpu2 = atoi(word);
+        servers[i].v_cpu2 = atoi(word);
 
-        if (program_configuration->servers[i].v_cpu1 == 0 
-            || program_configuration->servers[i].v_cpu2 == 0 ) {
+        if (servers[i].v_cpu1 == 0 
+            || servers[i].v_cpu2 == 0 ) {
             handle_log("WARNING: Possible error in Server Configs");
             }
     }
 
     #ifdef DEBUG
     printf("QUEUE_POS = %d\nMAX_WAIT = %d\nSERVER_NUMBER = %d\n", 
-                                            program_configuration->queue_pos, 
-                                            program_configuration->max_wait, 
-                                            program_configuration->edge_server_number);
+                                            queue_pos, 
+                                            max_wait, 
+                                            edge_server_number);
 
-    for (i = 0; i < program_configuration->edge_server_number; i++) {
-        printf("%s,%d,%d\n", program_configuration->servers[i].name, 
-                                    program_configuration->servers[i].v_cpu1, 
-                                    program_configuration->servers[i].v_cpu2);
+    for (i = 0; i < edge_server_number; i++) {
+        printf("%s,%d,%d\n", servers[i].name, 
+                                servers[i].v_cpu1, 
+                                servers[i].v_cpu2);
     }
 
     printf("End of load_config()\n");
