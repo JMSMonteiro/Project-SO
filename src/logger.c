@@ -9,7 +9,7 @@
 #include "logger.h"
 #include "system_manager.h"
 
-#define LOG_FILE "log.txt"
+#define LOG_FILE "../logs/log.txt"
 
 sem_t *mutex_logger;
 
