@@ -19,12 +19,18 @@
 
 
 // Defines Below 
+#define MUTEX_LOGGER "MUTEX_LOGGER"
+#define MUTEX_CONFIG "MUTEX_CONFIG"
+#define MUTEX_SERVERS "MUTEX_SERVERS"
+#define MUTEX_STATS "MUTEX_STATS"
 
 // Variables Below
 int shmid;
+sem_t *mutex_config, *mutex_servers, *mutex_stats;
 key_t shmkey;
 prog_config *program_configuration;
 edge_server *servers;
+statistics *program_stats;
 
 
 int main(int argc, char* argv[]) {
@@ -35,9 +41,27 @@ int main(int argc, char* argv[]) {
     }
 
     // TODO: Semaphores / MUTEXES / Condition variables
-    sem_unlink("MUTEX_LOGGER");
-    if ((mutex_logger = sem_open("MUTEX_LOGGER", O_CREAT | O_EXCL, 0777, 1)) < 0) {
+    sem_unlink(MUTEX_LOGGER);
+    if ((mutex_logger = sem_open(MUTEX_LOGGER, O_CREAT | O_EXCL, 0777, 1)) < 0) {
         perror("sem_open() Error - MUTEX_LOGGER\n");
+        exit(-1);
+    }
+
+    sem_unlink(MUTEX_CONFIG);
+    if ((mutex_config = sem_open(MUTEX_CONFIG, O_CREAT | O_EXCL, 0777, 1)) < 0) {
+        perror("sem_open() Error - MUTEX_CONFIG\n");
+        exit(-1);
+    }
+    
+    sem_unlink(MUTEX_SERVERS);
+    if ((mutex_servers = sem_open(MUTEX_SERVERS, O_CREAT | O_EXCL, 0777, 1)) < 0) {
+        perror("sem_open() Error - MUTEX_SERVERS\n");
+        exit(-1);
+    }
+    
+    sem_unlink(MUTEX_STATS);
+    if ((mutex_stats = sem_open(MUTEX_STATS, O_CREAT | O_EXCL, 0777, 1)) < 0) {
+        perror("sem_open() Error - MUTEX_STATS\n");
         exit(-1);
     }
 
@@ -81,15 +105,26 @@ int main(int argc, char* argv[]) {
 
     // ? Insert monitor call here ?
 
-    // ! REMOVE LATER
+    // ! IMPROVE LATER
+    handle_program_finish();
+    return 0;
+}
+
+void handle_program_finish() {
+    // * Wait for processes [ Maintenance Manager, Monitor, Task Manager ]
     wait(NULL);
     wait(NULL);
     wait(NULL);
 
-    // Clean memory resources
+    // * Unlink semaphores
+    sem_unlink(MUTEX_LOGGER);
+    sem_unlink(MUTEX_CONFIG);
+    sem_unlink(MUTEX_SERVERS);
+    sem_unlink(MUTEX_STATS);
+
+    // * Clean memory resources
     shmdt(program_configuration);
     shmctl(shmid, IPC_RMID, NULL);
-    return 0;
 }
 
 void load_config(char *file_name) {
@@ -140,6 +175,7 @@ void load_config(char *file_name) {
     * size = sizeof(prog_config) + server_number * sizeof(edge_server) + {Insert aditional stuff needed}
     */
     
+    // ? Note to self: Do I really need this?
     // Copied from factory_main.c PL4 Ex5
     if ((shmkey = ftok(".", getpid())) == (key_t) -1){
         perror("IPC error: ftok\n");
@@ -147,7 +183,10 @@ void load_config(char *file_name) {
     };
     // End of copied code
 
-    shmid = shmget(shmkey, sizeof(prog_config) + sizeof(edge_server) * edge_server_number, IPC_CREAT | 0777);
+    shmid = shmget(shmkey, sizeof(prog_config) 
+                        + (sizeof(edge_server) * edge_server_number) 
+                        + sizeof(statistics)
+                        , IPC_CREAT | 0777);
     if (shmid < 1) {
         perror("Error Creating shared memory\n");
         exit(1);
@@ -155,9 +194,15 @@ void load_config(char *file_name) {
 
     program_configuration = (prog_config *) shmat(shmid, NULL, 0);
 
+    // Lock config SHM area
+    sem_wait(mutex_config);
+
     program_configuration->queue_pos = queue_pos;
     program_configuration->max_wait = max_wait;
     program_configuration->edge_server_number = edge_server_number;
+
+    // Unlock config memory area
+    sem_post(mutex_config);
 
     if (program_configuration < (prog_config*) 1) {
         perror("Error attaching memory\n");
@@ -165,7 +210,10 @@ void load_config(char *file_name) {
     }
 
     servers = (edge_server *) (program_configuration + 1);
+    program_stats = (statistics *) (servers + 1);
 
+    // Lock servers SHM area
+    sem_wait(mutex_servers);
     for (i = 0; i < program_configuration->edge_server_number; i++) {
         if (fgets(line, sizeof(line), qPtr) == NULL) {
             perror("Reached EOF\n");
@@ -189,6 +237,8 @@ void load_config(char *file_name) {
             handle_log("WARNING: Possible error in Server Configs");
             }
     }
+    // Unlock Servers SHM area
+    sem_post(mutex_servers);
 
     #ifdef DEBUG
     printf("QUEUE_POS = %d\nMAX_WAIT = %d\nSERVER_NUMBER = %d\n", 

@@ -15,6 +15,8 @@ typedef struct {
     int v_cpu2;
     int performance_mode;
     int can_accept_tasks;
+    int tasks_executed;
+    int maintenance_operation_performed;
 } edge_server;
 
 typedef struct {
@@ -24,13 +26,24 @@ typedef struct {
     int current_performance_mode;
 } prog_config;
 
+typedef struct {
+    int total_tasks_executed;
+    int total_tasks_not_executed;
+    int avg_response_time; //tempo desde que a tarefa chegou até começar a ser executada
+} statistics;
+
 extern sem_t *mutex_logger;
+extern sem_t *mutex_config;
+extern sem_t *mutex_servers;
+extern sem_t *mutex_stats;
 extern int shmid;
 extern key_t shmkey;
 extern prog_config *program_configuration;
 extern edge_server *servers;
+extern statistics *program_stats;
 
 
 void load_config(char *file_name);
+void handle_program_finish();
 
 #endif

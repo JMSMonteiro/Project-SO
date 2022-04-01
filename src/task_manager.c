@@ -12,32 +12,13 @@
 #include "logger.h"
 #include "edge_server.h"
 
-// int shmid;
 pthread_t scheduler_id;
-// prog_config *program_configuration;
-// edge_server *servers;
 
 void task_manager() {
     int i;
     handle_log("INFO: Task Manager Started");
 
-    // Get Shared Memory
-
-    // shmid = shmget(shmkey, 0, 0777);
-    if (shmid < 1) {
-        perror("Error opening shm memory!\n");
-        exit(1);
-    }
-    program_configuration = (prog_config *) shmat(shmid, NULL, 0);
-    if (program_configuration < (prog_config *) 1) {
-        perror("Error attachign memory!\n");
-        exit(1);
-    }
-    servers = (edge_server *) (program_configuration + 1);
-
-
-
-    //Create 
+    // Create Edge servers
     for (i = 0; i < program_configuration->edge_server_number; i++) {
         // fork() == 0 => Child
         if (fork() == 0) {
