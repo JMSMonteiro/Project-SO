@@ -50,3 +50,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Custom files
+log.txt
+SO_diagram.pdf
+offload_simulator
+mobile_node

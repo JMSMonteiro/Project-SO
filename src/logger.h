@@ -1,5 +1,7 @@
-#ifndef logger_h__
-#define logger_h__
+// José Miguel Saraiva Monteiro - 2015235572
+
+#ifndef _logger_h__
+#define _logger_h__
 
 #include <time.h>
 

@@ -1,10 +1,18 @@
+// José Miguel Saraiva Monteiro - 2015235572
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-#include "logger.h"
+#include <semaphore.h>
+#include <sys/stat.h>
 
-#define LOG_FILE "log.txt"
+#include "logger.h"
+#include "system_manager.h"
+
+#define LOG_FILE "../logs/log.txt"
+
+sem_t *mutex_logger;
 
 void handle_log(char message[]) {
     time_t seconds;
@@ -19,13 +27,19 @@ void handle_log(char message[]) {
     timeStruct = localtime(&seconds);
 
     // Convert time values to string stored in current_time
-    sprintf(current_time, "%02d:%02d:%02d ",timeStruct->tm_hour, timeStruct->tm_min, timeStruct->tm_sec);
+    sprintf(current_time, "%02d:%02d:%02d ", timeStruct->tm_hour, 
+                                            timeStruct->tm_min, 
+                                            timeStruct->tm_sec);
 
     strcat(full_log_message, current_time);
     strcat(full_log_message, message);
 
+    sem_wait(mutex_logger);
+    
     _print_to_stderr(full_log_message);
     _print_to_file(full_log_message);
+    
+    sem_post(mutex_logger);
 }
 
 void _print_to_stderr(char message[]) {
@@ -36,7 +50,11 @@ void _print_to_file(char message[]) {
     FILE *qPtr;
 
     if ((qPtr = fopen(LOG_FILE, "a")) == NULL) {
-        perror("Error Opening File\n");
+        // perror("Error Opening File\n");
+        mkdir("../logs/", 0755);
+        if ((qPtr = fopen(LOG_FILE, "a")) == NULL) {
+            perror("Error Opening File, couldn't create directory\n");
+        }
     }
 
     fprintf(qPtr, "%s\n", message);
