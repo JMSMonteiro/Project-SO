@@ -48,7 +48,9 @@ int main(int argc, char* argv[]) {
     // TODO: Semaphores / MUTEXES / Condition variables
     
     // ? Start of Semaphores / Mutexes
+    
     start_semaphores();
+    
     // ? End of Semaphores / Mutexes
 
     // * Keep this call after mutexes startup to avoid errors 
@@ -140,6 +142,13 @@ void start_semaphores() {
 }
 
 void handle_program_finish(int signum) {
+    // ! Keep this here?
+    handle_log("INFO: Simulator Closing!");
+
+    #ifdef DEBUG
+    printf("Starting to cleanup resources!\n");
+    #endif
+
     // * Wait for processes [ Maintenance Manager, Monitor, Task Manager ]
     wait(NULL);
     wait(NULL);
@@ -172,6 +181,10 @@ void handle_program_finish(int signum) {
     // * Clean memory resources
     shmdt(program_configuration);
     shmctl(shmid, IPC_RMID, NULL);
+
+    #ifdef DEBUG
+    printf("Resources cleaned, exiting!\n");
+    #endif
 
     exit(0);
 }
