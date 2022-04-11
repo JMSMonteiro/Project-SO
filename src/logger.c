@@ -33,8 +33,12 @@ void handle_log(char message[]) {
     strcat(full_log_message, current_time);
     strcat(full_log_message, message);
 
+    sem_wait(mutex_logger);
+    
     _print_to_stderr(full_log_message);
     _print_to_file(full_log_message);
+    
+    sem_post(mutex_logger);
 }
 
 void _print_to_stderr(char message[]) {
@@ -44,8 +48,6 @@ void _print_to_stderr(char message[]) {
 void _print_to_file(char message[]) {
     FILE *qPtr;
 
-    sem_wait(mutex_logger);
-
     if ((qPtr = fopen(LOG_FILE, "a")) == NULL) {
         perror("Error Opening File\n");
     }
@@ -53,6 +55,4 @@ void _print_to_file(char message[]) {
     fprintf(qPtr, "%s\n", message);
 
     fclose(qPtr);
-
-    sem_post(mutex_logger);
 }

@@ -1,5 +1,6 @@
 // José Miguel Saraiva Monteiro - 2015235572
 
+#include <semaphore.h>
 #include <stdlib.h>
 #include <sys/shm.h>
 #include <unistd.h>
@@ -17,6 +18,12 @@ pthread_t scheduler_id;
 void task_manager() {
     int i;
     handle_log("INFO: Task Manager Started");
+
+    sem_wait(mutex_config);
+
+    program_configuration->task_manager_pid = getpid();
+
+    sem_post(mutex_config);
 
     // Create Edge servers
     for (i = 0; i < program_configuration->edge_server_number; i++) {

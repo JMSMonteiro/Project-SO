@@ -7,7 +7,7 @@
 #include <semaphore.h>
 #include <sys/types.h>
 
-// #define DEBUG   // Remove/Comment this line to remove debug messages
+#define DEBUG   // Remove/Comment this line to remove debug messages
 
 typedef struct {
     char name[64];
@@ -24,6 +24,9 @@ typedef struct {
     int max_wait;
     int edge_server_number;
     int current_performance_mode;
+    pid_t monitor_pid;
+    pid_t task_manager_pid;
+    pid_t maintenance_monitor_pid;
 } prog_config;
 
 typedef struct {
@@ -43,7 +46,8 @@ extern edge_server *servers;
 extern statistics *program_stats;
 
 
-void load_config(char *file_name);
+void start_semaphores();
 void handle_program_finish();
+void load_config(char *file_name);
 
 #endif

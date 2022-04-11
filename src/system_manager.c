@@ -6,6 +6,7 @@
 #include <semaphore.h>
 #include <string.h>
 #include <sys/shm.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <wait.h>
 #include <semaphore.h>
@@ -41,35 +42,18 @@ int main(int argc, char* argv[]) {
     }
 
     // TODO: Semaphores / MUTEXES / Condition variables
-    sem_unlink(MUTEX_LOGGER);
-    if ((mutex_logger = sem_open(MUTEX_LOGGER, O_CREAT | O_EXCL, 0777, 1)) < 0) {
-        perror("sem_open() Error - MUTEX_LOGGER\n");
-        exit(-1);
-    }
-
-    sem_unlink(MUTEX_CONFIG);
-    if ((mutex_config = sem_open(MUTEX_CONFIG, O_CREAT | O_EXCL, 0777, 1)) < 0) {
-        perror("sem_open() Error - MUTEX_CONFIG\n");
-        exit(-1);
-    }
     
-    sem_unlink(MUTEX_SERVERS);
-    if ((mutex_servers = sem_open(MUTEX_SERVERS, O_CREAT | O_EXCL, 0777, 1)) < 0) {
-        perror("sem_open() Error - MUTEX_SERVERS\n");
-        exit(-1);
-    }
-    
-    sem_unlink(MUTEX_STATS);
-    if ((mutex_stats = sem_open(MUTEX_STATS, O_CREAT | O_EXCL, 0777, 1)) < 0) {
-        perror("sem_open() Error - MUTEX_STATS\n");
-        exit(-1);
-    }
+    // ? Start of Semaphores / Mutexes
+    start_semaphores();
+    // ? End of Semaphores / Mutexes
 
+    // * Keep this call after mutexes startup to avoid errors 
+    // * as the logger uses one of the mutexes
     handle_log("INFO: Offload Simulator Starting");
 
     load_config(argv[1]);
-
     // TODO: [Final] Create "named pipe" => TASK_PIPE 
+
 
     // fork() == 0 => Child process 
     if (fork() == 0) {
@@ -106,15 +90,59 @@ int main(int argc, char* argv[]) {
     // ? Insert monitor call here ?
 
     // ! IMPROVE LATER
+    // signal(SIGINT, handle_program_finish);
+    
     handle_program_finish();
+    // while(1) {}
+    
     return 0;
 }
 
-void handle_program_finish() {
+void start_semaphores() {
+    sem_unlink(MUTEX_LOGGER);
+    if ((mutex_logger = sem_open(MUTEX_LOGGER, O_CREAT | O_EXCL, 0777, 1)) < 0) {
+        perror("sem_open() Error - MUTEX_LOGGER\n");
+        exit(-1);
+    }
+
+    sem_unlink(MUTEX_CONFIG);
+    if ((mutex_config = sem_open(MUTEX_CONFIG, O_CREAT | O_EXCL, 0777, 1)) < 0) {
+        perror("sem_open() Error - MUTEX_CONFIG\n");
+        exit(-1);
+    }
+    
+    sem_unlink(MUTEX_SERVERS);
+    if ((mutex_servers = sem_open(MUTEX_SERVERS, O_CREAT | O_EXCL, 0777, 1)) < 0) {
+        perror("sem_open() Error - MUTEX_SERVERS\n");
+        exit(-1);
+    }
+    
+    sem_unlink(MUTEX_STATS);
+    if ((mutex_stats = sem_open(MUTEX_STATS, O_CREAT | O_EXCL, 0777, 1)) < 0) {
+        perror("sem_open() Error - MUTEX_STATS\n");
+        exit(-1);
+    }
+}
+
+void handle_program_finish(int signum) {
+    int i;
     // * Wait for processes [ Maintenance Manager, Monitor, Task Manager ]
-    wait(NULL);
-    wait(NULL);
-    wait(NULL);
+    for (i = 0; i < 3; i++) {
+        wait(NULL);
+    }
+    // ? Maybe use waitpid later ?
+    // waitpid(program_configuration->monitor_pid, NULL, 0);
+    // waitpid(program_configuration->task_manager_pid, NULL, 0);
+    // waitpid(program_configuration->maintenance_monitor_pid, NULL, 0);
+
+
+    #ifdef DEBUG
+    printf("\nSystem mngr PID =>%ld\nMonitor PID => %ld\nTask mngr PID => %ld\nMaintenance mngr PID => %ld\n\n", 
+                                                (long)getpid(),
+                                                (long)program_configuration->monitor_pid,
+                                                (long)program_configuration->task_manager_pid,
+                                                (long)program_configuration->maintenance_monitor_pid);
+    #endif
 
     // * Unlink semaphores
     sem_unlink(MUTEX_LOGGER);
@@ -125,6 +153,8 @@ void handle_program_finish() {
     // * Clean memory resources
     shmdt(program_configuration);
     shmctl(shmid, IPC_RMID, NULL);
+
+    exit(0);
 }
 
 void load_config(char *file_name) {
