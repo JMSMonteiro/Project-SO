@@ -142,23 +142,21 @@ void start_semaphores() {
 }
 
 void handle_program_finish(int signum) {
-    // ! Keep this here?
-    handle_log("INFO: Simulator Closing!");
-
-    #ifdef DEBUG
-    printf("Starting to cleanup resources!\n");
-    #endif
-
     // * Wait for processes [ Maintenance Manager, Monitor, Task Manager ]
     wait(NULL);
     wait(NULL);
     wait(NULL);
 
+    #ifdef DEBUG
+    printf("Starting to cleanup resources!\n");
+    #endif
+
+    handle_log("INFO: Simulator Closing!");
+
     // ? Maybe use waitpid later ?
     // waitpid(program_configuration->monitor_pid, NULL, 0);
     // waitpid(program_configuration->task_manager_pid, NULL, 0);
     // waitpid(program_configuration->maintenance_monitor_pid, NULL, 0);
-
 
     #ifdef DEBUG
     printf("\nSystem mngr PID =>%ld\nMonitor PID => %ld\nTask mngr PID => %ld\nMaintenance mngr PID => %ld\n\n", 
