@@ -6,7 +6,10 @@
 #include <semaphore.h>
 #include <string.h>
 #include <sys/shm.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
+#include <signal.h>
 #include <unistd.h>
 #include <wait.h>
 #include <semaphore.h>
@@ -27,6 +30,7 @@
 
 // Variables Below
 int shmid;
+int fd_task_pipe;
 sem_t *mutex_config, *mutex_servers, *mutex_stats;
 key_t shmkey;
 prog_config *program_configuration;
@@ -52,8 +56,20 @@ int main(int argc, char* argv[]) {
     handle_log("INFO: Offload Simulator Starting");
 
     load_config(argv[1]);
+    
+    // ! Pipe can only be created BEFORE the creation of child processes
     // TODO: [Final] Create "named pipe" => TASK_PIPE 
+    if (mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0777) < 0) {
+        perror("mkfifo() error | Error creating named pipe!\n");
+        exit(0);
+    }
 
+    // Open pipe for read + write
+    fd_task_pipe = open(PIPE_NAME, O_RDWR);
+    if (fd_task_pipe < 0) {
+        perror("open(PIPE) error\n");
+        exit(0);
+    }
 
     // fork() == 0 => Child process 
     if (fork() == 0) {
@@ -79,7 +95,6 @@ int main(int argc, char* argv[]) {
         maintenance_manager();
         exit(0);
     }
-
 
     // TODO: [Final] Create Message Queue
 
@@ -125,11 +140,11 @@ void start_semaphores() {
 }
 
 void handle_program_finish(int signum) {
-    int i;
     // * Wait for processes [ Maintenance Manager, Monitor, Task Manager ]
-    for (i = 0; i < 3; i++) {
-        wait(NULL);
-    }
+    wait(NULL);
+    wait(NULL);
+    wait(NULL);
+
     // ? Maybe use waitpid later ?
     // waitpid(program_configuration->monitor_pid, NULL, 0);
     // waitpid(program_configuration->task_manager_pid, NULL, 0);
@@ -149,6 +164,10 @@ void handle_program_finish(int signum) {
     sem_unlink(MUTEX_CONFIG);
     sem_unlink(MUTEX_SERVERS);
     sem_unlink(MUTEX_STATS);
+
+    // * Close pipe
+    close(fd_task_pipe);
+    unlink(PIPE_NAME);
 
     // * Clean memory resources
     shmdt(program_configuration);

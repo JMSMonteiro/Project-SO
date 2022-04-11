@@ -8,6 +8,7 @@
 #include <sys/types.h>
 
 #define DEBUG   // Remove/Comment this line to remove debug messages
+#define PIPE_NAME "TASK_PIPE"
 
 typedef struct {
     char name[64];
