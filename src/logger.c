@@ -5,6 +5,7 @@
 #include <time.h>
 #include <string.h>
 #include <semaphore.h>
+#include <sys/stat.h>
 
 #include "logger.h"
 #include "system_manager.h"
@@ -49,7 +50,11 @@ void _print_to_file(char message[]) {
     FILE *qPtr;
 
     if ((qPtr = fopen(LOG_FILE, "a")) == NULL) {
-        perror("Error Opening File\n");
+        // perror("Error Opening File\n");
+        mkdir("../logs/", 0755);
+        if ((qPtr = fopen(LOG_FILE, "a")) == NULL) {
+            perror("Error Opening File, couldn't create directory\n");
+        }
     }
 
     fprintf(qPtr, "%s\n", message);
