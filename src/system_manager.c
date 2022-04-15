@@ -58,6 +58,10 @@ int main(int argc, char* argv[]) {
     handle_log("INFO: Offload Simulator Starting");
 
     load_config(argv[1]);
+
+    #ifdef DEBUG
+    printf("Creating Pipe!\n");
+    #endif
     
     // ! Pipe can only be created BEFORE the creation of child processes
     // TODO: [Final] Create "named pipe" => TASK_PIPE 
@@ -72,6 +76,10 @@ int main(int argc, char* argv[]) {
         perror("open(PIPE) error\n");
         exit(0);
     }
+
+    #ifdef DEBUG
+    printf("Pipe created!\n");
+    #endif
 
     // fork() == 0 => Child process 
     if (fork() == 0) {
@@ -147,11 +155,11 @@ void handle_program_finish(int signum) {
     wait(NULL);
     wait(NULL);
 
+    handle_log("INFO: Simulator Closing!");
+
     #ifdef DEBUG
     printf("Starting to cleanup resources!\n");
     #endif
-
-    handle_log("INFO: Simulator Closing!");
 
     // ? Maybe use waitpid later ?
     // waitpid(program_configuration->monitor_pid, NULL, 0);
@@ -235,6 +243,10 @@ void load_config(char *file_name) {
     * size = sizeof(prog_config) + server_number * sizeof(edge_server) + {Insert aditional stuff needed}
     */
     
+    #ifdef DEBUG
+    printf("Creating shared memory!\n");
+    #endif
+
     // ? Note to self: Do I really need this?
     // Copied from factory_main.c PL4 Ex5
     if ((shmkey = ftok(".", getpid())) == (key_t) -1){
@@ -253,6 +265,10 @@ void load_config(char *file_name) {
     }
 
     program_configuration = (prog_config *) shmat(shmid, NULL, 0);
+
+    #ifdef DEBUG
+    printf("Shared memory created!\n");
+    #endif
 
     // Lock config SHM area
     sem_wait(mutex_config);
