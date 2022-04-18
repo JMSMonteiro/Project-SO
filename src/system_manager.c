@@ -59,6 +59,8 @@ int main(int argc, char* argv[]) {
 
     load_config(argv[1]);
 
+    signal_initializer();
+
     #ifdef DEBUG
     printf("Creating Pipe!\n");
     #endif
@@ -147,6 +149,77 @@ void start_semaphores() {
         perror("sem_open() Error - MUTEX_STATS\n");
         exit(-1);
     }
+}
+
+void signal_initializer() {
+    // Capture SIGINT <=> Terminate Program
+    signal(SIGINT, handle_program_finish);  // CTRL^C
+    
+    // Capture SIGTSTP <=> Print stats
+    signal(SIGTSTP, display_stats);  // CTRL^Z
+}
+
+void display_stats(int signum) {
+    char tasks_performed[64] = "STATS: ";
+    char task_response_time[64] = "STATS: Average response time was: ";
+    char tasks_not_performed[64] = "STATS: ";
+    char server_basic_stats[64];
+    char server_tasks_executed[64];
+    char server_maintenance_ops[64];
+    char auxiliar[32];
+    int i;
+
+    sem_wait(mutex_stats);
+
+    // *Total # of performed tasks
+    //  Convert int to string
+    sprintf(auxiliar, "%d", program_stats->total_tasks_executed);
+    // Add number to existing message
+    strcat(tasks_performed, auxiliar);
+    // Finish the string
+    strcat(tasks_performed, " Tasks executed!");
+    handle_log(tasks_performed);
+    
+    // * AVG response time to each task (time from arrival to execution)
+    sprintf(auxiliar, "%d", program_stats->avg_response_time);
+    strcat(task_response_time, auxiliar);
+    strcat(task_response_time, " ms.");
+
+    handle_log(task_response_time);
+    
+    sem_wait(mutex_servers);
+    for (i = 0; i < program_configuration->edge_server_number; i++) {
+        //Get the name of the server
+        strcpy(server_basic_stats, "STATS: Statistics for server \'");
+        strcat(server_basic_stats, servers[i].name);
+        strcat(server_basic_stats, "\':");
+        handle_log(server_basic_stats);
+        
+        // * # tasks executed in each server
+        strcpy(server_tasks_executed, "STATS: Tasks executed by server: ");
+        sprintf(auxiliar, "%d", servers[i].tasks_executed);
+        strcat(server_tasks_executed, auxiliar);
+        strcat(server_tasks_executed, " !");
+
+        handle_log(server_tasks_executed);
+
+        // * # maintenante ops for each server
+        strcpy(server_maintenance_ops, "STATS: Maintenance operations done by the server: ");
+        sprintf(auxiliar, "%d", servers[i].maintenance_operation_performed);
+        strcat(server_maintenance_ops, auxiliar);
+        strcat(server_maintenance_ops, " !");
+        
+        handle_log(server_maintenance_ops);
+    }
+    sem_post(mutex_servers);
+
+    // * # tasks not executed
+    sprintf(auxiliar, "%d", program_stats->total_tasks_not_executed);
+    strcat(tasks_not_performed, auxiliar);
+    strcat(tasks_not_performed, " Tasks not executed!");
+    handle_log(tasks_not_performed);
+    
+    sem_post(mutex_stats);
 }
 
 void handle_program_finish(int signum) {
@@ -256,8 +329,8 @@ void load_config(char *file_name) {
     // End of copied code
 
     shmid = shmget(shmkey, sizeof(prog_config) 
-                        + (sizeof(edge_server) * edge_server_number) 
                         + sizeof(statistics)
+                        + (sizeof(edge_server) * edge_server_number) 
                         , IPC_CREAT | 0777);
     if (shmid < 1) {
         perror("Error Creating shared memory\n");
@@ -265,6 +338,11 @@ void load_config(char *file_name) {
     }
 
     program_configuration = (prog_config *) shmat(shmid, NULL, 0);
+   
+    if (program_configuration < (prog_config*) 1) {
+        perror("Error attaching memory\n");
+        exit(1);
+    }
 
     #ifdef DEBUG
     printf("Shared memory created!\n");
@@ -280,13 +358,8 @@ void load_config(char *file_name) {
     // Unlock config memory area
     sem_post(mutex_config);
 
-    if (program_configuration < (prog_config*) 1) {
-        perror("Error attaching memory\n");
-        exit(1);
-    }
-
-    servers = (edge_server *) (program_configuration + 1);
-    program_stats = (statistics *) (servers + 1);
+    program_stats = (statistics *) (program_configuration + 1);
+    servers = (edge_server *) (program_stats + 1);
 
     // Lock servers SHM area
     sem_wait(mutex_servers);
@@ -315,6 +388,18 @@ void load_config(char *file_name) {
     }
     // Unlock Servers SHM area
     sem_post(mutex_servers);
+
+    // Lock Stats SHM area
+    sem_wait(mutex_stats);
+
+    // ? Initialize stats variables
+    program_stats->avg_response_time = 0;
+    program_stats->total_tasks_executed = 0;
+    program_stats->total_tasks_not_executed = 0;
+
+    sem_post(mutex_stats);
+    // Unlock Stats SHM area
+
 
     #ifdef DEBUG
     printf("QUEUE_POS = %d\nMAX_WAIT = %d\nSERVER_NUMBER = %d\n", 

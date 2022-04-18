@@ -46,7 +46,8 @@ extern prog_config *program_configuration;
 extern edge_server *servers;
 extern statistics *program_stats;
 
-
+void signal_initializer();
+void display_stats();
 void start_semaphores();
 void handle_program_finish();
 void load_config(char *file_name);
