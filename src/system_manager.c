@@ -161,36 +161,37 @@ void signal_initializer() {
 
 void display_stats(int signum) {
     char stats_message[128];
+    int max_string_size = 128;
     int i;
 
     sem_wait(mutex_stats);
 
     // *Total # of performed tasks
-    sprintf(stats_message, "STATS: %d Tasks executed!", program_stats->total_tasks_executed);
+    snprintf(stats_message, max_string_size, "STATS: %d Tasks executed!", program_stats->total_tasks_executed);
     handle_log(stats_message);
     
     // * AVG response time to each task (time from arrival to execution)
-    sprintf(stats_message, "STATS: Average response time was: %d ms.", program_stats->avg_response_time);
+    snprintf(stats_message, max_string_size, "STATS: Average response time was: %d ms.", program_stats->avg_response_time);
     handle_log(stats_message);
     
     sem_wait(mutex_servers);
     for (i = 0; i < program_configuration->edge_server_number; i++) {
         // Display the name of the server
-        sprintf(stats_message, "STATS: Statistics for server \'%s\':", servers[i].name);
+        snprintf(stats_message, max_string_size, "STATS: Statistics for server \'%s\':", servers[i].name);
         handle_log(stats_message);
         
         // * # tasks executed in each server
-        sprintf(stats_message, "STATS: Tasks executed by server: %d !", servers[i].tasks_executed);
+        snprintf(stats_message, max_string_size, "STATS: Tasks executed by server: %d !", servers[i].tasks_executed);
         handle_log(stats_message);
 
         // * # maintenante ops for each server
-        sprintf(stats_message, "STATS: Maintenance operations done by the server: %d !", servers[i].maintenance_operation_performed);
+        snprintf(stats_message, max_string_size, "STATS: Maintenance operations done by the server: %d !", servers[i].maintenance_operation_performed);
         handle_log(stats_message);
     }
     sem_post(mutex_servers);
 
     // * # tasks not executed
-    sprintf(stats_message, "STATS: %d Tasks not executed!", program_stats->total_tasks_not_executed);
+    snprintf(stats_message, max_string_size, "STATS: %d Tasks not executed!", program_stats->total_tasks_not_executed);
     handle_log(stats_message);
     
     sem_post(mutex_stats);
