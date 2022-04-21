@@ -160,64 +160,38 @@ void signal_initializer() {
 }
 
 void display_stats(int signum) {
-    char tasks_performed[64] = "STATS: ";
-    char task_response_time[64] = "STATS: Average response time was: ";
-    char tasks_not_performed[64] = "STATS: ";
-    char server_basic_stats[64];
-    char server_tasks_executed[64];
-    char server_maintenance_ops[64];
-    char auxiliar[32];
+    char stats_message[128];
     int i;
 
     sem_wait(mutex_stats);
 
     // *Total # of performed tasks
-    //  Convert int to string
-    sprintf(auxiliar, "%d", program_stats->total_tasks_executed);
-    // Add number to existing message
-    strcat(tasks_performed, auxiliar);
-    // Finish the string
-    strcat(tasks_performed, " Tasks executed!");
-    handle_log(tasks_performed);
+    sprintf(stats_message, "STATS: %d Tasks executed!", program_stats->total_tasks_executed);
+    handle_log(stats_message);
     
     // * AVG response time to each task (time from arrival to execution)
-    sprintf(auxiliar, "%d", program_stats->avg_response_time);
-    strcat(task_response_time, auxiliar);
-    strcat(task_response_time, " ms.");
-
-    handle_log(task_response_time);
+    sprintf(stats_message, "STATS: Average response time was: %d ms.", program_stats->avg_response_time);
+    handle_log(stats_message);
     
     sem_wait(mutex_servers);
     for (i = 0; i < program_configuration->edge_server_number; i++) {
-        //Get the name of the server
-        strcpy(server_basic_stats, "STATS: Statistics for server \'");
-        strcat(server_basic_stats, servers[i].name);
-        strcat(server_basic_stats, "\':");
-        handle_log(server_basic_stats);
+        // Display the name of the server
+        sprintf(stats_message, "STATS: Statistics for server \'%s\':", servers[i].name);
+        handle_log(stats_message);
         
         // * # tasks executed in each server
-        strcpy(server_tasks_executed, "STATS: Tasks executed by server: ");
-        sprintf(auxiliar, "%d", servers[i].tasks_executed);
-        strcat(server_tasks_executed, auxiliar);
-        strcat(server_tasks_executed, " !");
-
-        handle_log(server_tasks_executed);
+        sprintf(stats_message, "STATS: Tasks executed by server: %d !", servers[i].tasks_executed);
+        handle_log(stats_message);
 
         // * # maintenante ops for each server
-        strcpy(server_maintenance_ops, "STATS: Maintenance operations done by the server: ");
-        sprintf(auxiliar, "%d", servers[i].maintenance_operation_performed);
-        strcat(server_maintenance_ops, auxiliar);
-        strcat(server_maintenance_ops, " !");
-        
-        handle_log(server_maintenance_ops);
+        sprintf(stats_message, "STATS: Maintenance operations done by the server: %d !", servers[i].maintenance_operation_performed);
+        handle_log(stats_message);
     }
     sem_post(mutex_servers);
 
     // * # tasks not executed
-    sprintf(auxiliar, "%d", program_stats->total_tasks_not_executed);
-    strcat(tasks_not_performed, auxiliar);
-    strcat(tasks_not_performed, " Tasks not executed!");
-    handle_log(tasks_not_performed);
+    sprintf(stats_message, "STATS: %d Tasks not executed!", program_stats->total_tasks_not_executed);
+    handle_log(stats_message);
     
     sem_post(mutex_stats);
 }
@@ -354,6 +328,8 @@ void load_config(char *file_name) {
     program_configuration->queue_pos = queue_pos;
     program_configuration->max_wait = max_wait;
     program_configuration->edge_server_number = edge_server_number;
+    //Performance modes = 1 <-> Default | 2  <-> High performance
+    program_configuration->current_performance_mode = 1;
 
     // Unlock config memory area
     sem_post(mutex_config);
@@ -367,6 +343,12 @@ void load_config(char *file_name) {
         if (fgets(line, sizeof(line), qPtr) == NULL) {
             perror("Reached EOF\n");
         }
+        // * Defaults
+        servers[i].tasks_executed = 0;
+        servers[i].can_accept_tasks = 1;
+        servers[i].maintenance_operation_performed = 0;
+        servers[i].performance_mode = 1;
+        
         // Read each line and divide it by the comma ","
         word = strtok(line, ",");
         // Copy first value (name) into it's respective var
