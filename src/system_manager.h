@@ -18,6 +18,7 @@ typedef struct {
     int can_accept_tasks;
     int tasks_executed;
     int maintenance_operation_performed;
+    pid_t server_pid;
 } edge_server;
 
 typedef struct {
@@ -49,7 +50,7 @@ extern statistics *program_stats;
 void signal_initializer();
 void display_stats();
 void start_semaphores();
-void handle_program_finish();
+void handle_program_finish(int signum);
 void load_config(char *file_name);
 
 #endif

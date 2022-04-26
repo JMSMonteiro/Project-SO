@@ -1,5 +1,6 @@
 // José Miguel Saraiva Monteiro - 2015235572
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -15,6 +16,10 @@
 void maintenance_manager() {
     handle_log("INFO: Maintenance Manager Started");
 
+    signal(SIGINT, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+    signal(SIGUSR1, handle_maintenance_mngr_shutdown);
+
 
     sem_wait(mutex_config);
 
@@ -22,5 +27,19 @@ void maintenance_manager() {
 
     sem_post(mutex_config);
 
+    while(1) {
 
+    }    
+    exit(0);
+}
+
+void handle_maintenance_mngr_shutdown(int signum) {
+    #ifdef DEBUG
+    if (signum == SIGUSR1) {
+        printf("Maintenance Manager received signal \"SIGUSR1\"\n");
+    }
+    printf("Shutting down Maintenance Manager\n");
+    #endif
+
+    exit(0);
 }

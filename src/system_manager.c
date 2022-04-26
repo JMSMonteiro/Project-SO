@@ -46,6 +46,9 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
 
+    signal(SIGINT, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+
     // TODO: Semaphores / MUTEXES / Condition variables
     
     // ? Start of Semaphores / Mutexes
@@ -59,8 +62,6 @@ int main(int argc, char* argv[]) {
     handle_log("INFO: Offload Simulator Starting");
 
     load_config(argv[1]);
-
-    signal_initializer();
 
     #ifdef DEBUG
     printf("Creating Pipe!\n");
@@ -90,7 +91,6 @@ int main(int argc, char* argv[]) {
         // TODO: [Intermediate] Create process <=> Task Manager
         handle_log("INFO: Creating Process: 'Task Manager'");
         task_manager();
-        exit(0);
     }
 
     if (fork() == 0) {
@@ -98,7 +98,6 @@ int main(int argc, char* argv[]) {
         // TODO: [Intermediate] Create process <=> Monitor 
         handle_log("INFO: Creating Process: 'Monitor'");
         monitor();
-        exit(0);
     }
 
     if (fork() == 0) {
@@ -106,7 +105,6 @@ int main(int argc, char* argv[]) {
         // TODO: [Intermediate] Create process <=> Maintenance Manager 
         handle_log("INFO: Creating Process: 'Maintenance Manager'");
         maintenance_manager();
-        exit(0);
     }
 
     // TODO: [Final] Create Message Queue
@@ -118,10 +116,10 @@ int main(int argc, char* argv[]) {
     // ? Insert monitor call here ?
 
     // ! IMPROVE LATER
-    // signal(SIGINT, handle_program_finish);
-    
-    handle_program_finish();
-    // while(1) {}
+
+    signal_initializer();
+
+    while(1) {}
     
     return 0;
 }
@@ -198,10 +196,42 @@ void display_stats(int signum) {
 }
 
 void handle_program_finish(int signum) {
+    #ifdef DEBUG
+    printf("handle_program_finish() <=> System manager\n");
+    if (signum == SIGINT) {
+        printf("Signalling SIGINT\n");
+    }
+    #endif
+
+    // * Signal other processes that they need to shutdown
+    sem_wait(mutex_config);
+    kill(program_configuration->task_manager_pid, SIGUSR1);
+    kill(program_configuration->maintenance_monitor_pid, SIGUSR1);
+    kill(program_configuration->monitor_pid, SIGUSR1);
+    sem_post(mutex_config);
+
+    #ifdef DEBUG
+    printf("Waiting for 3 processes to finish\n");
+    #endif
+
     // * Wait for processes [ Maintenance Manager, Monitor, Task Manager ]
     wait(NULL);
+    
+    #ifdef DEBUG
+    printf("Waiting for 2 processes to finish\n");
+    #endif
+    
     wait(NULL);
+    
+    #ifdef DEBUG
+    printf("Waiting for 1 processes to finish\n");
+    #endif
+    
     wait(NULL);
+
+    #ifdef DEBUG
+    printf("All processes finished\n");
+    #endif
 
     handle_log("INFO: Simulator Closing!");
 

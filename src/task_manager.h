@@ -6,6 +6,8 @@
 #include "system_manager.h"
 
 void task_manager();
+void handle_task_mngr_shutdown(int signum);
 void *scheduler(void* p);
+void *dispatcher(void* p);
 
 #endif

@@ -4,5 +4,6 @@
 #define _mantenance_manager_h__
 
 void maintenance_manager();
+void handle_maintenance_mngr_shutdown(int signum);
 
 #endif

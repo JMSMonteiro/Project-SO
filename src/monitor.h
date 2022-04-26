@@ -4,5 +4,6 @@
 #define _monitor_h__
 
 void monitor();
+void handle_monitor_shutdown(int signum);
 
 #endif
