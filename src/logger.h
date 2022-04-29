@@ -5,6 +5,8 @@
 
 #include <time.h>
 
+#define LOG_MESSAGE_SIZE (128)
+
 void handle_log(char message[]);
 void _print_to_stderr(char message[]);
 void _print_to_file(char message[]);

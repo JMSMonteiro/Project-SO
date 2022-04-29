@@ -27,7 +27,6 @@
 #define MUTEX_CONFIG "MUTEX_CONFIG"
 #define MUTEX_SERVERS "MUTEX_SERVERS"
 #define MUTEX_STATS "MUTEX_STATS"
-#define STATS_MESSAGE_SIZE (128)
 
 // Variables Below
 int shmid;
@@ -159,37 +158,37 @@ void signal_initializer() {
 }
 
 void display_stats(int signum) {
-    char stats_message[STATS_MESSAGE_SIZE];
+    char stats_message[LOG_MESSAGE_SIZE];
     int i;
 
     sem_wait(mutex_stats);
 
     // *Total # of performed tasks
-    snprintf(stats_message, STATS_MESSAGE_SIZE, "STATS: %d Tasks executed!", program_stats->total_tasks_executed);
+    snprintf(stats_message, LOG_MESSAGE_SIZE, "STATS: %d Tasks executed!", program_stats->total_tasks_executed);
     handle_log(stats_message);
     
     // * AVG response time to each task (time from arrival to execution)
-    snprintf(stats_message, STATS_MESSAGE_SIZE, "STATS: Average response time was: %d ms.", program_stats->avg_response_time);
+    snprintf(stats_message, LOG_MESSAGE_SIZE, "STATS: Average response time was: %d ms.", program_stats->avg_response_time);
     handle_log(stats_message);
     
     sem_wait(mutex_servers);
     for (i = 0; i < program_configuration->edge_server_number; i++) {
         // Display the name of the server
-        snprintf(stats_message, STATS_MESSAGE_SIZE, "STATS: Statistics for server \'%s\':", servers[i].name);
+        snprintf(stats_message, LOG_MESSAGE_SIZE, "STATS: Statistics for server \'%s\':", servers[i].name);
         handle_log(stats_message);
         
         // * # tasks executed in each server
-        snprintf(stats_message, STATS_MESSAGE_SIZE, "STATS: Tasks executed by server: %d !", servers[i].tasks_executed);
+        snprintf(stats_message, LOG_MESSAGE_SIZE, "STATS: Tasks executed by server: %d !", servers[i].tasks_executed);
         handle_log(stats_message);
 
         // * # maintenante ops for each server
-        snprintf(stats_message, STATS_MESSAGE_SIZE, "STATS: Maintenance operations done by the server: %d !", servers[i].maintenance_operation_performed);
+        snprintf(stats_message, LOG_MESSAGE_SIZE, "STATS: Maintenance operations done by the server: %d !", servers[i].maintenance_operation_performed);
         handle_log(stats_message);
     }
     sem_post(mutex_servers);
 
     // * # tasks not executed
-    snprintf(stats_message, STATS_MESSAGE_SIZE, "STATS: %d Tasks not executed!", program_stats->total_tasks_not_executed);
+    snprintf(stats_message, LOG_MESSAGE_SIZE, "STATS: %d Tasks not executed!", program_stats->total_tasks_not_executed);
     handle_log(stats_message);
     
     sem_post(mutex_stats);

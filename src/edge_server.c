@@ -22,7 +22,7 @@ int server_is_running = 1;
 int server_index = -1;
 
 void start_edge_server(edge_server *server_config, int server_shm_position) {
-    char log_message[64] = "INFO: Edge Server: '";
+    char log_message[LOG_MESSAGE_SIZE];
     int thread_id[VCPU_NUMBER] = { server_config->v_cpu1, server_config->v_cpu2};
     int i;
 
@@ -38,10 +38,11 @@ void start_edge_server(edge_server *server_config, int server_shm_position) {
     sem_post(mutex_servers);
 
     sem_wait(mutex_servers);
-    strcat(log_message, server_config->name);
+    snprintf(log_message, LOG_MESSAGE_SIZE, 
+                                "INFO: Edge Server: \'%s\' Created",
+                                server_config->name);
     sem_post(mutex_servers);
     
-    strcat(log_message, "' Created");
     // ? Print => "Info: Edge server {Server_name} Created"
     handle_log(log_message); 
 

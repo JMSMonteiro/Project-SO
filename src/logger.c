@@ -14,11 +14,10 @@
 
 sem_t *mutex_logger;
 
-void handle_log(char message[]) {
+void handle_log(char *message) {
     time_t seconds;
     struct tm *timeStruct = NULL;
-    char current_time[10] = {};
-    char full_log_message[64] = {};
+    char full_log_message[LOG_MESSAGE_SIZE];
 
     // Get time
     seconds = time(NULL);
@@ -26,13 +25,13 @@ void handle_log(char message[]) {
     // Properly format time
     timeStruct = localtime(&seconds);
 
-    // Convert time values to string stored in current_time
-    sprintf(current_time, "%02d:%02d:%02d ", timeStruct->tm_hour, 
-                                            timeStruct->tm_min, 
-                                            timeStruct->tm_sec);
-
-    strcat(full_log_message, current_time);
-    strcat(full_log_message, message);
+    // Makes / Formats the full log message
+    snprintf(full_log_message, LOG_MESSAGE_SIZE,
+                                    "%02d:%02d:%02d %s",
+                                    timeStruct->tm_hour, 
+                                    timeStruct->tm_min, 
+                                    timeStruct->tm_sec,
+                                    message);
 
     sem_wait(mutex_logger);
     
@@ -50,7 +49,6 @@ void _print_to_file(char message[]) {
     FILE *qPtr;
 
     if ((qPtr = fopen(LOG_FILE, "a")) == NULL) {
-        // perror("Error Opening File\n");
         mkdir("../logs/", 0755);
         if ((qPtr = fopen(LOG_FILE, "a")) == NULL) {
             perror("Error Opening File, couldn't create directory\n");
