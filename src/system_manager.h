@@ -42,6 +42,7 @@ extern sem_t *mutex_config;
 extern sem_t *mutex_servers;
 extern sem_t *mutex_stats;
 extern int shmid;
+extern int fd_task_pipe;
 extern key_t shmkey;
 extern prog_config *program_configuration;
 extern edge_server *servers;

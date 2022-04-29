@@ -3,6 +3,8 @@
 #include <semaphore.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/select.h>
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -15,15 +17,22 @@
 #include "logger.h"
 #include "edge_server.h"
 
+#define EXIT_COMMAND "EXIT"
+#define STATS_COMMAND "STATS"
+
 pthread_t scheduler_id;
 pthread_t dispatcher_id;
 pthread_mutex_t task_manager_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t terminate_task_mngr_cond = PTHREAD_COND_INITIALIZER;
+fd_set read_set;
 
 int is_program_running = 1;
+char pipe_string[LOG_MESSAGE_SIZE];
 
 void task_manager() {
     int i;
+    int char_number;
+    pid_t system_manager_pid = getppid();
     handle_log("INFO: Task Manager Started");
 
     signal(SIGINT, SIG_IGN);
@@ -58,7 +67,26 @@ void task_manager() {
     #endif
 
     while (1) {
+        FD_ZERO(&read_set);
 
+        FD_SET(fd_task_pipe, &read_set);    // ? Set named pipe file descriptor
+
+        if (select(fd_task_pipe + 1, &read_set, NULL, NULL, NULL) > 0) {
+
+            if (FD_ISSET(fd_task_pipe, &read_set)) {
+                char_number = read(fd_task_pipe, pipe_string, sizeof(pipe_string));
+                pipe_string[char_number - 1] = '\0'; // ? Put a \0 at the string end
+
+                if (strcmp(pipe_string, STATS_COMMAND) == 0) {
+                    // * Signal System manager to print stats
+                    kill(system_manager_pid, SIGTSTP);
+                }
+                else if (strcmp(pipe_string, EXIT_COMMAND) == 0) {
+                    // * Signal System manager to shut down
+                    kill(system_manager_pid, SIGINT);
+                } 
+            }
+        }
     }
 }
 
