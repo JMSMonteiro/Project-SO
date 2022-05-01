@@ -28,6 +28,8 @@ fd_set read_set;
 
 int is_program_running = 1;
 char pipe_string[LOG_MESSAGE_SIZE];
+int *unnamed_pipes;
+int server_number;
 
 void task_manager() {
     int i;
@@ -41,15 +43,27 @@ void task_manager() {
     sem_wait(mutex_config);
 
     program_configuration->task_manager_pid = getpid();
+    server_number = program_configuration->edge_server_number;
 
     sem_post(mutex_config);
 
+    unnamed_pipes = (int*) malloc(sizeof(int) * (2 * server_number));
+
+    // Create one unnamed pipe for each server process
+    for (i = 0; i < server_number; i++) {
+        pipe(&unnamed_pipes[i * 2]);
+    }
+
     // Create Edge servers
-    for (i = 0; i < program_configuration->edge_server_number; i++) {
+    for (i = 0; i < server_number; i++) {
         // fork() == 0 => Child
         if (fork() == 0) {
-            start_edge_server(&servers[i], i);
+            start_edge_server(&servers[i], i, server_number, unnamed_pipes);
         }
+    }
+
+    for (i = 0; i < server_number; i++) {
+        close(unnamed_pipes[(i * 2)]);
     }
     
     pthread_create(&scheduler_id, NULL, scheduler, 0);
@@ -60,7 +74,7 @@ void task_manager() {
 
     printf("Edge server PIDs:\n");
     sem_wait(mutex_servers);
-    for(int i = 0; i < program_configuration->edge_server_number; i++) {
+    for(int i = 0; i < server_number; i++) {
         printf("Server #%d PID = %d\n", i + 1, servers[i].server_pid);
     }
     sem_post(mutex_servers);
@@ -91,7 +105,7 @@ void task_manager() {
 }
 
 void handle_task_mngr_shutdown(int signum) {
-    int i, server_pid, server_number;
+    int i, server_pid;
     
     #ifdef DEBUG
     if (signum == SIGUSR1) {
@@ -104,10 +118,6 @@ void handle_task_mngr_shutdown(int signum) {
     #endif
     
     is_program_running = 0;
-
-    sem_wait(mutex_config);
-    server_number = program_configuration->edge_server_number;
-    sem_post(mutex_config);
 
     for(i = 0; i < server_number; i++) {
         #ifdef DEBUG
@@ -144,6 +154,12 @@ void handle_task_mngr_shutdown(int signum) {
     printf("TASK MANAGER => \tPOST \"Join Threads\"\n");
     printf("Exiting from task Manager\n");
     #endif
+
+    for(i = 0; i < server_number * 2; i++) {
+        close(unnamed_pipes[i]);
+    }
+
+    free(unnamed_pipes);
     exit(0);    
 }
 

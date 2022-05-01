@@ -21,7 +21,7 @@ pthread_cond_t terminate_server_cond = PTHREAD_COND_INITIALIZER;
 int server_is_running = 1;
 int server_index = -1;
 
-void start_edge_server(edge_server *server_config, int server_shm_position) {
+void start_edge_server(edge_server *server_config, int server_shm_position, int server_number, int* unnamed_pipe) {
     char log_message[LOG_MESSAGE_SIZE];
     int thread_id[VCPU_NUMBER] = { server_config->v_cpu1, server_config->v_cpu2};
     int i;
@@ -42,6 +42,19 @@ void start_edge_server(edge_server *server_config, int server_shm_position) {
                                 "INFO: Edge Server: \'%s\' Created",
                                 server_config->name);
     sem_post(mutex_servers);
+
+    // ? Handle Pipe
+    // ? The end of the pipe in the server is meant to be read from
+    // ? Task mngr => Edge server (Tasks) 
+    // ? Only this server's specific end of a pipe meant to be read from is needed 
+    for (i = 0; i < server_number; i++) {
+        if (i == server_index) {
+            close(unnamed_pipe[(i * 2) + 1]);   // 1 = Write
+
+        }
+        close(unnamed_pipe[(i * 2)]);       // 0 = Read
+        close(unnamed_pipe[(i * 2) + 1]);   // 1 = Write
+    }
     
     // ? Print => "Info: Edge server {Server_name} Created"
     handle_log(log_message); 
