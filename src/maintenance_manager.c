@@ -28,6 +28,12 @@ void maintenance_manager() {
     sem_post(mutex_config);
 
     while(1) {
+        // * Maintenance Interval || Maintenance time => Random [1 - 5] seconds
+        // ? mngr => Server -> Going to maintenance ops
+        // ? Server => mngr -> Ready for intervention
+        // ? Server = Stopped
+        // ? mngr => Server -> Restart working
+
 
     }    
     exit(0);

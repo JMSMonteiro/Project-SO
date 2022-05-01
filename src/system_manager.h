@@ -37,6 +37,12 @@ typedef struct {
     int avg_response_time; //tempo desde que a tarefa chegou até começar a ser executada
 } statistics;
 
+typedef struct {
+    long server_index; // * Index of the server in the SHM array
+    // ? Insert Payload here
+    
+} maintenance_message;
+
 extern sem_t *mutex_logger;
 extern sem_t *mutex_config;
 extern sem_t *mutex_servers;

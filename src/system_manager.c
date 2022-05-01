@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/msg.h>
 #include <signal.h>
 #include <unistd.h>
 #include <wait.h>
@@ -31,6 +32,7 @@
 // Variables Below
 int shmid;
 int fd_task_pipe;
+int message_queue_id;
 sem_t *mutex_config, *mutex_servers, *mutex_stats;
 key_t shmkey;
 prog_config *program_configuration;
@@ -77,6 +79,13 @@ int main(int argc, char* argv[]) {
         exit(0);
     }
 
+    // TODO: [Final] Create Message Queue
+    message_queue_id = msgget(IPC_PRIVATE, IPC_CREAT | 0777);
+    if (message_queue_id < 0) {
+        perror("msgget() error\n");
+        exit(0);
+    }
+
     #ifdef DEBUG
     printf("Pipe created!\n");
     #endif
@@ -96,8 +105,6 @@ int main(int argc, char* argv[]) {
         handle_log("INFO: Creating Process: 'Maintenance Manager'");
         maintenance_manager();
     }
-
-    // TODO: [Final] Create Message Queue
 
     // ? Insert monitor call here ?
 
@@ -245,6 +252,9 @@ void handle_program_finish(int signum) {
     // * Close pipe
     close(fd_task_pipe);
     unlink(PIPE_NAME);
+
+    // * Close Message Queue
+    msgctl(message_queue_id, IPC_RMID, 0);
 
     // * Clean memory resources
     shmdt(program_configuration);
