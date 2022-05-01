@@ -48,8 +48,6 @@ int main(int argc, char* argv[]) {
     signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
 
-    // TODO: Semaphores / MUTEXES / Condition variables
-    
     // ? Start of Semaphores / Mutexes
     
     start_semaphores();
@@ -67,7 +65,6 @@ int main(int argc, char* argv[]) {
     #endif
     
     // ! Pipe can only be created BEFORE the creation of child processes
-    // TODO: [Final] Create "named pipe" => TASK_PIPE 
     if (mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0777) < 0) {
         perror("mkfifo() error | Error creating named pipe!\n");
         exit(0);
@@ -86,35 +83,23 @@ int main(int argc, char* argv[]) {
 
     // fork() == 0 => Child process 
     if (fork() == 0) {
-        // ! Important
-        // TODO: [Intermediate] Create process <=> Task Manager
         handle_log("INFO: Creating Process: 'Task Manager'");
         task_manager();
     }
 
     if (fork() == 0) {
-        // ! Important
-        // TODO: [Intermediate] Create process <=> Monitor 
         handle_log("INFO: Creating Process: 'Monitor'");
         monitor();
     }
 
     if (fork() == 0) {
-        // ! Important
-        // TODO: [Intermediate] Create process <=> Maintenance Manager 
         handle_log("INFO: Creating Process: 'Maintenance Manager'");
         maintenance_manager();
     }
 
     // TODO: [Final] Create Message Queue
 
-    // TODO: [Final] Catch SIGSTP & Print Stats
-
-    // TODO: [Final] Catch SIGINT to finish program
-
     // ? Insert monitor call here ?
-
-    // ! IMPROVE LATER
 
     signal_initializer();
 
