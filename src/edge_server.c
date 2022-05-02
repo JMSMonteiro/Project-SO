@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/msg.h>
 #include <unistd.h>
 
 #include "edge_server.h"
@@ -18,10 +19,11 @@ pthread_t v_cpu[VCPU_NUMBER];
 pthread_mutex_t edge_server_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t terminate_server_cond = PTHREAD_COND_INITIALIZER;
 
-int server_is_running = 1;
-int server_index = -1;
+static int server_is_running = 1;
+static int server_index = -1;
 
 void start_edge_server(edge_server *server_config, int server_shm_position, int server_number, int* unnamed_pipe) {
+    maintenance_message message_rcvd;
     char log_message[LOG_MESSAGE_SIZE];
     int thread_id[VCPU_NUMBER] = { server_config->v_cpu1, server_config->v_cpu2};
     int i;
@@ -77,7 +79,26 @@ void start_edge_server(edge_server *server_config, int server_shm_position, int 
     }
 
     while (1) {
-
+        msgrcv(message_queue_id, &message_rcvd, sizeof(maintenance_message) - sizeof(long), (server_index + 1), 0);
+        if (message_rcvd.stop_flag) {
+            snprintf(log_message, LOG_MESSAGE_SIZE, 
+                                "INFO: Server %d Stopped, going to maintenance for (%ds)",
+                                server_index,
+                                message_rcvd.maintenance_time);
+            handle_log(log_message);
+            #ifdef DEBUG
+            printf("\t[SERVER %d] Received message to STOP!\n", server_index);
+            #endif
+        }
+        else {
+            snprintf(log_message, LOG_MESSAGE_SIZE, 
+                                "INFO: Server %d Maintained, going back to work",
+                                server_index);
+            handle_log(log_message);
+            #ifdef DEBUG
+            printf("\t[SERVER %d] Received message to RESUME\n", server_index);
+            #endif
+        }
     }
 }
 
@@ -96,6 +117,9 @@ void handle_edge_shutdown(int signum) {
     for (i = 0; i < VCPU_NUMBER; i++) {
         pthread_join(v_cpu[i], NULL);
     }
+
+    pthread_mutex_destroy(&edge_server_thread_mutex);
+
     #ifdef DEBUG
     printf("Exiting from Edge Server <=> %d\n", getpid());
     #endif

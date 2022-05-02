@@ -5,5 +5,6 @@
 
 void maintenance_manager();
 void handle_maintenance_mngr_shutdown(int signum);
+void *maintenance_thread(void* server_ind);
 
 #endif

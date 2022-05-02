@@ -7,7 +7,7 @@
 #include <semaphore.h>
 #include <sys/types.h>
 
-#define DEBUG   // Remove/Comment this line to remove debug messages
+// #define DEBUG   // Remove/Comment this line to remove debug messages
 #define PIPE_NAME "TASK_PIPE"
 
 typedef struct {
@@ -40,7 +40,8 @@ typedef struct {
 typedef struct {
     long server_index; // * Index of the server in the SHM array
     // ? Insert Payload here
-    
+    int stop_flag;
+    int maintenance_time;
 } maintenance_message;
 
 extern sem_t *mutex_logger;
@@ -49,6 +50,7 @@ extern sem_t *mutex_servers;
 extern sem_t *mutex_stats;
 extern int shmid;
 extern int fd_task_pipe;
+extern int message_queue_id;
 extern key_t shmkey;
 extern prog_config *program_configuration;
 extern edge_server *servers;
