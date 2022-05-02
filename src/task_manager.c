@@ -29,7 +29,7 @@ fd_set read_set;
 int is_program_running = 1;
 char pipe_string[LOG_MESSAGE_SIZE];
 int *unnamed_pipes;
-int server_number;
+static int server_number;
 
 void task_manager() {
     int i;
@@ -154,6 +154,8 @@ void handle_task_mngr_shutdown(int signum) {
     printf("TASK MANAGER => \tPOST \"Join Threads\"\n");
     printf("Exiting from task Manager\n");
     #endif
+
+    pthread_mutex_destroy(&task_manager_thread_mutex);
 
     for(i = 0; i < server_number * 2; i++) {
         close(unnamed_pipes[i]);
