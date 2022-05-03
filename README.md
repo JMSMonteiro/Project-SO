@@ -17,3 +17,33 @@ To run the project, firstly run `./offload_simulator {config_name}`, providing a
 The second part of the project is the `./mobile_node {# of requests to generate} {interval between requests (ms)} {MIPS} {maximum execution time}`. This will start a mobile node, which will send requests to the **Offload Simulator** which will process them.  
 
 *Note: for the project's intermidiate goal, the connection between mobile nodes and the offload simulator will not be done. Mobile node will only print it's inputs, and the offload simulator will only start the processes and threads required later.*
+
+### Signals
+
+##### SIGINT 
+* **System Manager** - Logs "Command Received" and Starts shutdown procedure  
+
+##### SIGTSTP
+* **System Manager** - Logs "Command Received" and prints out statistics
+
+##### SIGUSR1
+* **Maintenance Manager** - Starts Shutdown Procedure
+* **System Manager** - Starts Shutdown Procedure
+* **Task Manager** - Starts Shutdown Procedure
+* **Edge Server** - Starts Shutdown Procedure
+* **Monitor** - Starts Shutdown Procedure
+
+How the signals are sent:  
+Task Manager ==(kill)=> System Manager   
+System Manager ==(kill)=> Maintenance Manager   
+System Manager ==(kill)=> Task Manager   
+System Manager ==(kill)=> Monitor   
+Task Manager ==(kill)=> Edge Server  
+
+
+
+##### SIGUSR2
+* **System Manager** - Print out statistics
+
+How the signals are sent:  
+Task Manager ==(kill)=> System Manager  
