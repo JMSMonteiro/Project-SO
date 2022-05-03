@@ -27,13 +27,14 @@ pthread_cond_t terminate_task_mngr_cond = PTHREAD_COND_INITIALIZER;
 fd_set read_set;
 
 int is_program_running = 1;
-char pipe_string[LOG_MESSAGE_SIZE];
+char pipe_string[(LOG_MESSAGE_SIZE / 2)];
 int *unnamed_pipes;
 static int server_number;
 
 void task_manager() {
     int i;
     int char_number;
+    char log_message[LOG_MESSAGE_SIZE];
     pid_t system_manager_pid = getppid();
     handle_log("INFO: Task Manager Started");
 
@@ -93,12 +94,20 @@ void task_manager() {
 
                 if (strcmp(pipe_string, STATS_COMMAND) == 0) {
                     // * Signal System manager to print stats
-                    kill(system_manager_pid, SIGTSTP);
+                    snprintf(log_message, LOG_MESSAGE_SIZE, "COMMAND: Received command: \'%s\'", pipe_string);
+                    handle_log(log_message);
+                    kill(system_manager_pid, SIGUSR2);
                 }
                 else if (strcmp(pipe_string, EXIT_COMMAND) == 0) {
                     // * Signal System manager to shut down
-                    kill(system_manager_pid, SIGINT);
+                    snprintf(log_message, LOG_MESSAGE_SIZE, "COMMAND: Received command: \'%s\'", pipe_string);
+                    handle_log(log_message);
+                    kill(system_manager_pid, SIGUSR1);
                 } 
+                else {
+                    snprintf(log_message, LOG_MESSAGE_SIZE, "COMMAND: Received Unknown command: \'%s\'", pipe_string);
+                    handle_log(log_message);
+                }
             }
         }
     }

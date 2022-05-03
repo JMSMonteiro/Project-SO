@@ -143,10 +143,22 @@ void start_semaphores() {
 
 void signal_initializer() {
     // Capture SIGINT <=> Terminate Program
-    signal(SIGINT, handle_program_finish);  // CTRL^C
+    signal(SIGINT, start_shutdown_routine);  // CTRL^C
     
+    // Capture signal from Task Manager
+    signal(SIGUSR1, handle_program_finish);  // Task Manager => "EXIT" > TASK_PIPE
+
     // Capture SIGTSTP <=> Print stats
-    signal(SIGTSTP, display_stats);  // CTRL^Z
+    signal(SIGTSTP, handle_display_stats);  // CTRL^Z
+
+    // Capture signal from Task Manager
+    signal(SIGUSR2, display_stats);  // Task Manager => "STATS" > TASK_PIPE
+}
+
+void handle_display_stats(int signum) {
+    handle_log("SIGNAL: Received SIGTSTP");
+
+    display_stats(signum);
 }
 
 void display_stats(int signum) {
@@ -184,6 +196,12 @@ void display_stats(int signum) {
     handle_log(stats_message);
     
     sem_post(mutex_stats);
+}
+
+void start_shutdown_routine(int signum) {
+    handle_log("SIGNAL: Received SIGINT");
+
+    handle_program_finish(signum);
 }
 
 void handle_program_finish(int signum) {

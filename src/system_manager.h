@@ -57,9 +57,11 @@ extern edge_server *servers;
 extern statistics *program_stats;
 
 void signal_initializer();
+void handle_display_stats(int signum);
 void display_stats();
 void start_semaphores();
 void handle_program_finish(int signum);
+void start_shutdown_routine(int signum);
 void load_config(char *file_name);
 
 #endif
