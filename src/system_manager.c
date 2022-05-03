@@ -263,6 +263,12 @@ void handle_program_finish(int signum) {
                                                 (long)program_configuration->maintenance_manager_pid);
     #endif
 
+    // * Close / Shutdown Pthread stuff
+    pthread_mutex_destroy(&program_configuration->change_performance_mode_mutex);
+    pthread_mutexattr_destroy(&program_configuration->mutex_attr);
+    pthread_cond_destroy(&program_configuration->change_performance_mode);
+    pthread_condattr_destroy(&program_configuration->cond_attr);
+
     // * Unlink semaphores
     sem_unlink(MUTEX_LOGGER);
     sem_unlink(MUTEX_CONFIG);
@@ -366,6 +372,11 @@ void load_config(char *file_name) {
     #ifdef DEBUG
     printf("Shared memory created!\n");
     #endif
+    pthread_condattr_init(&program_configuration->cond_attr);
+    pthread_condattr_setpshared(&program_configuration->cond_attr, PTHREAD_PROCESS_SHARED);
+
+    pthread_mutexattr_init(&program_configuration->mutex_attr);
+    pthread_mutexattr_setpshared(&program_configuration->mutex_attr, PTHREAD_PROCESS_SHARED);
 
     // Lock config SHM area
     sem_wait(mutex_config);
@@ -375,6 +386,8 @@ void load_config(char *file_name) {
     program_configuration->edge_server_number = edge_server_number;
     //Performance modes = 1 <-> Default | 2  <-> High performance
     program_configuration->current_performance_mode = 1;
+    pthread_cond_init(&program_configuration->change_performance_mode, &program_configuration->cond_attr);
+    pthread_mutex_init(&program_configuration->change_performance_mode_mutex, &program_configuration->mutex_attr);
 
     // Unlock config memory area
     sem_post(mutex_config);

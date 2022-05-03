@@ -8,6 +8,7 @@
 
 void start_edge_server(edge_server *server_config, int server_shm_position, int server_number, int* unnamed_pipe);
 void handle_edge_shutdown(int signum);
+void *performance_mode_checker ();
 void *edge_thread (void* p);
 
 #endif

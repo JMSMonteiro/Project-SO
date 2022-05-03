@@ -21,8 +21,8 @@ typedef struct {
 } thread_settings;
 
 pthread_t v_cpu[VCPU_NUMBER];
+pthread_t performance_checker;
 pthread_mutex_t edge_server_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t terminate_server_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t end_of_maintenance_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t high_performance_mode_cond = PTHREAD_COND_INITIALIZER;
 
@@ -97,6 +97,8 @@ void start_edge_server(edge_server *server_config, int server_shm_position, int 
     t_settings[1].is_high_performance = vcpu_power[1] > vcpu_power[0] ? 1 : 0;
     pthread_create(&v_cpu[1], NULL, edge_thread, &t_settings[1]);
 
+    pthread_create(&performance_checker, NULL, performance_mode_checker, NULL);
+
     while (1) {
         msgrcv(message_queue_id, &message_rcvd, sizeof(maintenance_message) - sizeof(long), (server_index + 1), 0);
         if (message_rcvd.stop_flag) {
@@ -137,14 +139,19 @@ void handle_edge_shutdown(int signum) {
 
     // Signal everything to make sure threads  terminate and don't get stuck
     pthread_mutex_lock(&edge_server_thread_mutex);
-    pthread_cond_broadcast(&terminate_server_cond);
     pthread_cond_broadcast(&high_performance_mode_cond);
     pthread_cond_broadcast(&end_of_maintenance_cond);
     pthread_mutex_unlock(&edge_server_thread_mutex);
 
+    pthread_mutex_lock(&program_configuration->change_performance_mode_mutex);
+    pthread_cond_broadcast(&program_configuration->change_performance_mode);
+    pthread_mutex_unlock(&program_configuration->change_performance_mode_mutex);
+
     for (i = 0; i < VCPU_NUMBER; i++) {
         pthread_join(v_cpu[i], NULL);
     }
+
+    pthread_join(performance_checker, NULL);
 
     pthread_mutex_destroy(&edge_server_thread_mutex);
 
@@ -155,14 +162,28 @@ void handle_edge_shutdown(int signum) {
     exit(0);    
 }
 
+void *performance_mode_checker () {
+    pthread_mutex_lock(&program_configuration->change_performance_mode_mutex);
+    while (server_is_running) {
+        pthread_cond_wait(&program_configuration->change_performance_mode, &program_configuration->change_performance_mode_mutex);
+        sem_wait(mutex_config);
+        performance_mode = program_configuration->current_performance_mode;
+        sem_post(mutex_config);
+        
+        pthread_mutex_lock(&edge_server_thread_mutex);
+        pthread_cond_broadcast(&high_performance_mode_cond);
+        pthread_mutex_unlock(&edge_server_thread_mutex);
+    }
+    pthread_mutex_unlock(&program_configuration->change_performance_mode_mutex);
+
+    pthread_exit(NULL);
+}
+
 void *edge_thread (void* p) {
     thread_settings settings = *((thread_settings *) p);
     struct timespec remaining, request = {1, 0};
     #ifdef DEBUG
     printf("I'm a vCPU thread | [POWER] = %d! [Performance] = %d\n", settings.processing_power, settings.is_high_performance);
-    #endif
-
-    #ifdef DEBUG
     if (settings.is_high_performance) {
         printf("\t\tI\'m the high performance thread!\n");
     }
@@ -193,15 +214,7 @@ void *edge_thread (void* p) {
         }
     }
 
-
-    // pthread_mutex_lock(&edge_server_thread_mutex);
-    // while (server_is_running) {
-    //     pthread_cond_wait(&terminate_server_cond, &edge_server_thread_mutex);
-    // }
-    // pthread_mutex_unlock(&edge_server_thread_mutex);
-
     // TODO: Insert thread logic here
-
 
     #ifdef DEBUG
     printf("\tExiting from vcpu thread!\n");

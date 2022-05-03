@@ -3,6 +3,7 @@
 #ifndef _system_manager_h__
 #define _system_manager_h__
 
+#include <pthread.h>
 #include <stdlib.h>
 #include <semaphore.h>
 #include <sys/types.h>
@@ -29,6 +30,10 @@ typedef struct {
     pid_t monitor_pid;
     pid_t task_manager_pid;
     pid_t maintenance_manager_pid;
+    pthread_cond_t change_performance_mode;
+    pthread_condattr_t cond_attr;
+    pthread_mutex_t change_performance_mode_mutex;
+    pthread_mutexattr_t mutex_attr;
 } prog_config;
 
 typedef struct {
