@@ -28,7 +28,7 @@ typedef struct {
     int current_performance_mode;
     pid_t monitor_pid;
     pid_t task_manager_pid;
-    pid_t maintenance_monitor_pid;
+    pid_t maintenance_manager_pid;
 } prog_config;
 
 typedef struct {

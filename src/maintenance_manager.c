@@ -35,7 +35,7 @@ void maintenance_manager() {
 
     sem_wait(mutex_config);
 
-    program_configuration->maintenance_monitor_pid = getpid();
+    program_configuration->maintenance_manager_pid = getpid();
     server_number = program_configuration->edge_server_number;
 
     sem_post(mutex_config);

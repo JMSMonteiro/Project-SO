@@ -197,7 +197,7 @@ void handle_program_finish(int signum) {
     // * Signal other processes that they need to shutdown
     sem_wait(mutex_config);
     kill(program_configuration->task_manager_pid, SIGUSR1);
-    kill(program_configuration->maintenance_monitor_pid, SIGUSR1);
+    kill(program_configuration->maintenance_manager_pid, SIGUSR1);
     kill(program_configuration->monitor_pid, SIGUSR1);
     sem_post(mutex_config);
 
@@ -233,14 +233,14 @@ void handle_program_finish(int signum) {
     // ? Maybe use waitpid later ?
     // waitpid(program_configuration->monitor_pid, NULL, 0);
     // waitpid(program_configuration->task_manager_pid, NULL, 0);
-    // waitpid(program_configuration->maintenance_monitor_pid, NULL, 0);
+    // waitpid(program_configuration->maintenance_manager_pid, NULL, 0);
 
     #ifdef DEBUG
     printf("\nSystem mngr PID =>%ld\nMonitor PID => %ld\nTask mngr PID => %ld\nMaintenance mngr PID => %ld\n\n", 
                                                 (long)getpid(),
                                                 (long)program_configuration->monitor_pid,
                                                 (long)program_configuration->task_manager_pid,
-                                                (long)program_configuration->maintenance_monitor_pid);
+                                                (long)program_configuration->maintenance_manager_pid);
     #endif
 
     // * Unlink semaphores
