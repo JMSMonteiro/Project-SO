@@ -212,6 +212,8 @@ void handle_program_finish(int signum) {
     }
     #endif
 
+    handle_log("INFO: Starting shutdown routine, please wait");
+
     // * Signal other processes that they need to shutdown
     sem_wait(mutex_config);
     kill(program_configuration->task_manager_pid, SIGUSR1);

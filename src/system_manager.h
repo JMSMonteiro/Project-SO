@@ -25,7 +25,7 @@ typedef struct {
     int queue_pos;
     int max_wait;
     int edge_server_number;
-    int current_performance_mode;
+    int current_performance_mode; // 0 = Stopped | 1 = Normal | 2 = High Performance
     pid_t monitor_pid;
     pid_t task_manager_pid;
     pid_t maintenance_manager_pid;
