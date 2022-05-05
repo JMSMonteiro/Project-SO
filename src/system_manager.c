@@ -22,7 +22,6 @@
 #include "monitor.h"
 #include "maintenance_manager.h"
 
-
 // Defines Below 
 #define MUTEX_LOGGER "MUTEX_LOGGER"
 #define MUTEX_CONFIG "MUTEX_CONFIG"
@@ -41,14 +40,27 @@ statistics *program_stats;
 
 
 int main(int argc, char* argv[]) {
+    sigset_t blocked_signals;
+    
     if (argc != 2) {
         printf("Bad command\n");
         printf("Correct command usage:\n$ offload_simulator {ficheiro_configuração}\n");
         exit(-1);
     }
 
+    // ? Start of signal Blocking
     signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
+
+    sigfillset(&blocked_signals);
+    sigdelset(&blocked_signals, SIGINT);
+    sigdelset(&blocked_signals, SIGTSTP);
+    sigdelset(&blocked_signals, SIGUSR1);
+    sigdelset(&blocked_signals, SIGUSR2);
+
+    sigprocmask(SIG_SETMASK, &blocked_signals, NULL);
+
+    // ? End of signal Blocking
 
     // ? Start of Semaphores / Mutexes
     
