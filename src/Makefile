@@ -9,6 +9,8 @@ MOBILE_DEP	= mobile_node.o
 
 all:	${SIMULATOR} ${MOBILE}
 
+mobile:	${MOBILE}
+
 clean:
 	rm ${OBJS} ${MOBILE_DEP} *~ ${SIMULATOR} ${MOBILE}
 
