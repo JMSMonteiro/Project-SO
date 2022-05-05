@@ -22,8 +22,7 @@ int main(int argc, char* argv[]) {
     int fd_pipe;
     char message_to_send[LOG_MESSAGE_SIZE / 2];
     struct timespec remaining, request = {0, 0};
-    // task_struct message;
-    // char test[10] = "STATS";
+    
     if (argc > 5) {
         bad_arguments("Too many arguments!");
         exit(-1);
@@ -32,11 +31,13 @@ int main(int argc, char* argv[]) {
         bad_arguments("Missing argument(s)!");
         exit(-1);
     }
+
     request_number = atoi(argv[1]);
     request_interval = atoi(argv[2]);
     request_instructions = atoi(argv[3]);
     max_execute_time = atoi(argv[4]);
 
+    // Validate params
     if (!request_number || !request_interval || !request_instructions || !max_execute_time) {
         bad_arguments("Invalid param!");
         exit(-1);
@@ -53,11 +54,13 @@ int main(int argc, char* argv[]) {
     // Populate message "data"
     sprintf(message_to_send, "%d-%d", request_instructions, max_execute_time);
 
+    // Open pipe
     if ((fd_pipe = open(PIPE_NAME, O_RDWR)) < 0) {
         perror("Can't open the pipe!");
         exit(0);
     }
 
+    // Generate requests
     for (i = 0; i < request_number; i++) {
         // TODO: Request struct
         write(fd_pipe, &message_to_send, sizeof(message_to_send));
@@ -69,7 +72,6 @@ int main(int argc, char* argv[]) {
     }
 
     close(fd_pipe);
-    // write(fd_pipe, test, sizeof(test));
 
     return 0;
 }
