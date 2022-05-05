@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include "logger.h"
 #include "mobile_node.h"
 #include "system_manager.h"
 
@@ -19,7 +20,9 @@
 int main(int argc, char* argv[]) {
     int i, request_number, request_interval, request_instructions, max_execute_time;
     int fd_pipe;
+    char message_to_send[LOG_MESSAGE_SIZE / 2];
     struct timespec remaining, request = {0, 0};
+    // task_struct message;
     // char test[10] = "STATS";
     if (argc > 5) {
         bad_arguments("Too many arguments!");
@@ -46,6 +49,10 @@ int main(int argc, char* argv[]) {
     
     // * Logic from here 
     request.tv_nsec = request_interval * CONVERT_NS_TO_MS;
+
+    // Populate message "data"
+    sprintf(message_to_send, "%d-%d", request_instructions, max_execute_time);
+
     if ((fd_pipe = open(PIPE_NAME, O_RDWR)) < 0) {
         perror("Can't open the pipe!");
         exit(0);
@@ -53,14 +60,15 @@ int main(int argc, char* argv[]) {
 
     for (i = 0; i < request_number; i++) {
         // TODO: Request struct
-        // write(fd_pipe, REQUEST_STRUCT, sizeof(REQUEST_STRUCT));
+        write(fd_pipe, &message_to_send, sizeof(message_to_send));
 
         #ifdef DEBUG
-        printf("Sent request %d, sleeping for %dms!\n", i + 1, request_interval);
+        printf("Sent request #%d, sleeping for %dms!\n", i + 1, request_interval);
         #endif
         nanosleep(&request, &remaining);
     }
 
+    close(fd_pipe);
     // write(fd_pipe, test, sizeof(test));
 
     return 0;

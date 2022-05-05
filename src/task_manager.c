@@ -35,6 +35,8 @@ void task_manager() {
     int i;
     int char_number;
     char log_message[LOG_MESSAGE_SIZE];
+    char *pipe_task_message = NULL; // used to split the task message
+    task_struct task_received;
     pid_t system_manager_pid = getppid();
     handle_log("INFO: Task Manager Started");
 
@@ -92,7 +94,18 @@ void task_manager() {
                 char_number = read(fd_task_pipe, pipe_string, sizeof(pipe_string));
                 pipe_string[char_number - 1] = '\0'; // ? Put a \0 at the string end
 
-                if (strcmp(pipe_string, STATS_COMMAND) == 0) {
+                if (index(pipe_string, '-') != NULL) {
+                    pipe_task_message = strtok(pipe_string, "-");
+                    task_received.mips = atoi(pipe_task_message);
+
+                    pipe_task_message = strtok(NULL, "-");
+                    task_received.exec_time = atoi(pipe_task_message);
+
+                    #ifdef DEBUG
+                    printf("[TASK MNGR]Received task: %d MIPS - %d Exec time\n", task_received.mips, task_received.exec_time);
+                    #endif
+                }
+                else if (strcmp(pipe_string, STATS_COMMAND) == 0) {
                     // * Signal System manager to print stats
                     snprintf(log_message, LOG_MESSAGE_SIZE, "COMMAND: Received command: \'%s\'", pipe_string);
                     handle_log(log_message);

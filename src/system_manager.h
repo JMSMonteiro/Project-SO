@@ -49,6 +49,11 @@ typedef struct {
     int maintenance_time;
 } maintenance_message;
 
+typedef struct {
+    int mips;
+    int exec_time;
+} task_struct;
+
 extern sem_t *mutex_logger;
 extern sem_t *mutex_config;
 extern sem_t *mutex_servers;
