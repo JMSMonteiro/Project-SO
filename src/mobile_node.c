@@ -3,16 +3,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "mobile_node.h"
 #include "system_manager.h"
+
+#define CONVERT_NS_TO_MS (1000000)
 
 // ? >> How to use mobile_node <<
 // ? $ mobile_node {nº pedidos a gerar} {intervalo entre pedidos em ms}
 // ? {milhares de instruções de cada pedido} {tempo máximo para execução}
 
 int main(int argc, char* argv[]) {
-    int request_number, request_interval, request_instructions, max_execute_time;    
+    int i, request_number, request_interval, request_instructions, max_execute_time;
+    int fd_pipe;
+    struct timespec remaining, request = {0, 0};
+    // char test[10] = "STATS";
     if (argc > 5) {
         bad_arguments("Too many arguments!");
         exit(-1);
@@ -35,6 +43,26 @@ int main(int argc, char* argv[]) {
     printf("req_number = %d\nreq_interval (ms) = %d\n", request_number, request_interval);
     printf("req_instructions (MIPS) = %d\nmax_exec_time = %d\n", request_instructions, max_execute_time);
     // #endif
+    
+    // * Logic from here 
+    request.tv_nsec = request_interval * CONVERT_NS_TO_MS;
+    if ((fd_pipe = open(PIPE_NAME, O_RDWR)) < 0) {
+        perror("Can't open the pipe!");
+        exit(0);
+    }
+
+    for (i = 0; i < request_number; i++) {
+        // TODO: Request struct
+        // write(fd_pipe, REQUEST_STRUCT, sizeof(REQUEST_STRUCT));
+
+        #ifdef DEBUG
+        printf("Sent request %d, sleeping for %dms!\n", i + 1, request_interval);
+        #endif
+        nanosleep(&request, &remaining);
+    }
+
+    // write(fd_pipe, test, sizeof(test));
+
     return 0;
 }
 
