@@ -19,6 +19,7 @@ sem_t maintenance_limiter;
 pthread_t *maint_mngr_threads;
 int *server_indexes;
 static int server_number;
+static int booted_servers;
 int maintenance_manager_running = 1;
 
 /*
@@ -37,6 +38,7 @@ void maintenance_manager() {
 
     program_configuration->maintenance_manager_pid = getpid();
     server_number = program_configuration->edge_server_number;
+    booted_servers = program_configuration->servers_fully_booted;
 
     sem_post(mutex_config);
 
@@ -44,6 +46,23 @@ void maintenance_manager() {
     server_indexes = malloc(sizeof(int) * server_number);
 
     sem_init(&maintenance_limiter, 0, (server_number - 1));
+
+    #ifdef DEBUG
+    printf("[MAINTENANCE] waiting for servers to start\n");
+    #endif
+    // ! Block here - wait for all edge servers up and running
+    pthread_mutex_lock(&program_configuration->change_performance_mode_mutex);
+    while (server_number != booted_servers) {
+        pthread_cond_wait(&program_configuration->change_performance_mode, &program_configuration->change_performance_mode_mutex);
+        sem_wait(mutex_config);
+        booted_servers = program_configuration->servers_fully_booted;
+        sem_post(mutex_config);
+    }
+    pthread_mutex_unlock(&program_configuration->change_performance_mode_mutex);
+
+    #ifdef DEBUG
+    printf("[MAINTENANCE] Starting maintenance threads, #%d Servers booted!\n", booted_servers);
+    #endif
 
     for (i = 0; i < server_number; i++) {
         server_indexes[i] = i;

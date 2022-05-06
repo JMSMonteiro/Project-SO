@@ -390,6 +390,7 @@ void load_config(char *file_name) {
     program_configuration->queue_pos = queue_pos;
     program_configuration->max_wait = max_wait;
     program_configuration->edge_server_number = edge_server_number;
+    program_configuration->servers_fully_booted = 0;
     //Performance modes = 1 <-> Default | 2  <-> High performance
     program_configuration->current_performance_mode = 1;
 

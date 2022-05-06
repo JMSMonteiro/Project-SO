@@ -99,6 +99,16 @@ void start_edge_server(edge_server *server_config, int server_shm_position, int 
 
     pthread_create(&performance_checker, NULL, performance_mode_checker, NULL);
 
+    sem_wait(mutex_config);
+
+    program_configuration->servers_fully_booted++;
+
+    sem_post(mutex_config);
+
+    pthread_mutex_lock(&program_configuration->change_performance_mode_mutex);
+    pthread_cond_broadcast(&program_configuration->change_performance_mode);
+    pthread_mutex_unlock(&program_configuration->change_performance_mode_mutex);
+
     while (1) {
         msgrcv(message_queue_id, &message_rcvd, sizeof(maintenance_message) - sizeof(long), (server_index + 1), 0);
         // * If server is going to maintenance
