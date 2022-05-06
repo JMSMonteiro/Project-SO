@@ -154,6 +154,10 @@ void handle_edge_shutdown(int signum) {
 
     server_is_running = 0;
 
+    sem_wait(mutex_servers);
+    servers[server_index].is_shutting_down = 1;
+    sem_post(mutex_servers);
+
     // Signal everything to make sure threads  terminate and don't get stuck
     pthread_mutex_lock(&edge_server_thread_mutex);
     pthread_cond_broadcast(&high_performance_mode_cond);

@@ -17,7 +17,7 @@ typedef struct {
     int v_cpu1;
     int v_cpu2;
     int performance_mode;
-    int can_accept_tasks;
+    int is_shutting_down;
     int tasks_executed;
     int maintenance_operation_performed;
     pid_t server_pid;

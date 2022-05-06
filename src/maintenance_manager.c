@@ -147,6 +147,13 @@ void *maintenance_thread(void* server_ind) {
         #ifdef DEBUG
         printf("\t\t\tMaintenance Manager [SERVER %d]: Maintaining for %ds\n", server_index, maintenance_time);
         #endif
+        sem_wait(mutex_servers);
+        if (servers[server_index].is_shutting_down) {
+            sem_post(mutex_servers);
+            sem_post(&maintenance_limiter);
+            break;
+        }
+        sem_post(mutex_servers);
         
         nanosleep(&request, &remaining);
 

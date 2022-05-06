@@ -420,7 +420,7 @@ void load_config(char *file_name) {
         }
         // * Defaults
         servers[i].tasks_executed = 0;
-        servers[i].can_accept_tasks = 1;
+        servers[i].is_shutting_down = 0;
         servers[i].maintenance_operation_performed = 0;
         servers[i].performance_mode = 1;
         
