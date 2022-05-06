@@ -101,6 +101,7 @@ void start_edge_server(edge_server *server_config, int server_shm_position, int 
 
     while (1) {
         msgrcv(message_queue_id, &message_rcvd, sizeof(maintenance_message) - sizeof(long), (server_index + 1), 0);
+        // * If server is going to maintenance
         if (message_rcvd.stop_flag) {
             server_needs_maintenance = 1;
             snprintf(log_message, LOG_MESSAGE_SIZE, 
@@ -112,6 +113,7 @@ void start_edge_server(edge_server *server_config, int server_shm_position, int 
             printf("\t[SERVER %d] Received message to STOP!\n", server_index);
             #endif
         }
+        // * If Server is going to resume work
         else {
             server_needs_maintenance = 0;
             snprintf(log_message, LOG_MESSAGE_SIZE, 
@@ -120,6 +122,7 @@ void start_edge_server(edge_server *server_config, int server_shm_position, int 
             handle_log(log_message);
             
             pthread_mutex_lock(&edge_server_thread_mutex);
+            // * Signal thread(s) to resume work, maintenance is done
             pthread_cond_broadcast(&end_of_maintenance_cond);
             pthread_mutex_unlock(&edge_server_thread_mutex);
             #ifdef DEBUG
@@ -163,9 +166,12 @@ void handle_edge_shutdown(int signum) {
 }
 
 void *performance_mode_checker () {
+    // * Thread used to check if the server's performance mode needs to change or not
     pthread_mutex_lock(&program_configuration->change_performance_mode_mutex);
     while (server_is_running) {
+        // * Cond Var -> wait for signal to change performance mode
         pthread_cond_wait(&program_configuration->change_performance_mode, &program_configuration->change_performance_mode_mutex);
+        // * Controlled access to shm => get current performance mode
         sem_wait(mutex_config);
         performance_mode = program_configuration->current_performance_mode;
         sem_post(mutex_config);

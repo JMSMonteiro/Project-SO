@@ -109,7 +109,7 @@ void *maintenance_thread(void* server_ind) {
         // ? Determines how many seconds the server can work without maintenance
         request.tv_sec = maintenance_free_time;
         // ? Sleep for: maintenance_free_time seconds
-        nanosleep(&request, &remaining);
+        nanosleep(&request, &remaining); // * Server works for n seconds
         
         // ? Generate random interval for server maintenance time
         maintenance_time = (rand() % (MAX_MAINTENANCE_TIME - MIN_MAINTENANCE_TIME + 1)) + MIN_MAINTENANCE_TIME;
