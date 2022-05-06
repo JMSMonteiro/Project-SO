@@ -256,6 +256,10 @@ void handle_program_finish(int signum) {
     printf("All processes finished\n");
     #endif
 
+    // TODO: Log not executed tasks
+
+    display_stats(0);
+
     handle_log("INFO: Simulator Closing!");
 
     #ifdef DEBUG
