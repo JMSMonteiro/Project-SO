@@ -130,6 +130,10 @@ void start_edge_server(edge_server *server_config, int server_shm_position, int 
                                 "INFO: Server %d Maintained, going back to work",
                                 server_index);
             handle_log(log_message);
+
+            sem_wait(mutex_servers);
+            servers[server_shm_position].maintenance_operation_performed++;
+            sem_post(mutex_servers);
             
             pthread_mutex_lock(&edge_server_thread_mutex);
             // * Signal thread(s) to resume work, maintenance is done
@@ -206,7 +210,8 @@ void *edge_thread (void* p) {
     #endif
 
     while (server_is_running) {
-        if (server_needs_maintenance) {
+        // * Server going into maintenance
+        if (server_needs_maintenance) { 
             #ifdef DEBUG
             printf("\t[THREAD] with [POWER] = %d [STOPPING]!\n", settings.processing_power);
             #endif
@@ -217,11 +222,13 @@ void *edge_thread (void* p) {
             printf("\t\t[THREAD] with [POWER] = %d [RESUMING]!\n", settings.processing_power);
             #endif
         }
+        // * Only if it's the performance thread
         else if (settings.is_high_performance == 1 && performance_mode != 2) {
             pthread_mutex_lock(&edge_server_thread_mutex);
             pthread_cond_wait(&high_performance_mode_cond, &edge_server_thread_mutex);
             pthread_mutex_unlock(&edge_server_thread_mutex);
         }
+        // * Does regular work
         else {
             #ifdef DEBUG
             printf("\tThread with %d POWER working\n", settings.processing_power);
