@@ -10,6 +10,7 @@
 
 // #define DEBUG   // Remove/Comment this line to remove debug messages
 #define PIPE_NAME "TASK_PIPE"
+#define TASK_ID_SIZE (15)
 
 typedef struct {
     char name[64];
@@ -51,6 +52,7 @@ typedef struct {
 } maintenance_message;
 
 typedef struct {
+    char task_id[TASK_ID_SIZE];
     int mips;
     int exec_time;
 } task_struct;

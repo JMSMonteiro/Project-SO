@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
     int fd_pipe;
     char message_to_send[LOG_MESSAGE_SIZE / 2];
     struct timespec remaining, request = {0, 0};
+    pid_t mobile_node_pid;
     
     if (argc > 5) {
         bad_arguments("Too many arguments!");
@@ -49,10 +50,9 @@ int main(int argc, char* argv[]) {
     // #endif
     
     // * Logic from here 
-    request.tv_nsec = request_interval * CONVERT_NS_TO_MS;
+    mobile_node_pid = getpid();
 
-    // Populate message "data"
-    sprintf(message_to_send, "%d-%d", request_instructions, max_execute_time);
+    request.tv_nsec = request_interval * CONVERT_NS_TO_MS;
 
     // Open pipe
     if ((fd_pipe = open(PIPE_NAME, O_RDWR)) < 0) {
@@ -63,6 +63,9 @@ int main(int argc, char* argv[]) {
     // Generate requests
     for (i = 0; i < request_number; i++) {
         // TODO: Request struct
+        // Populate message "data"
+        snprintf(message_to_send, LOG_MESSAGE_SIZE / 2, "%d-%d:%d:%d", mobile_node_pid, i, request_instructions, max_execute_time);
+        
         write(fd_pipe, &message_to_send, sizeof(message_to_send));
 
         #ifdef DEBUG

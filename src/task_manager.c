@@ -94,15 +94,18 @@ void task_manager() {
                 char_number = read(fd_task_pipe, pipe_string, sizeof(pipe_string));
                 pipe_string[char_number - 1] = '\0'; // ? Put a \0 at the string end
 
-                if (index(pipe_string, '-') != NULL) {
-                    pipe_task_message = strtok(pipe_string, "-");
-                    task_received.mips = atoi(pipe_task_message);
+                if (index(pipe_string, ':') != NULL) {
+                    pipe_task_message = strtok(pipe_string, ":");
+                    strcpy(task_received.task_id, pipe_task_message);
 
-                    pipe_task_message = strtok(NULL, "-");
+                    pipe_task_message = strtok(NULL, ":");
+                    task_received.mips = atoi(pipe_task_message);
+                    
+                    pipe_task_message = strtok(NULL, ":");
                     task_received.exec_time = atoi(pipe_task_message);
 
                     #ifdef DEBUG
-                    printf("[TASK MNGR]Received task: %d MIPS - %d Exec time\n", task_received.mips, task_received.exec_time);
+                    printf("[TASK MNGR]Received task: ID: %s | %d MIPS | %d Exec time\n", task_received.task_id, task_received.mips, task_received.exec_time);
                     #endif
                 }
                 else if (strcmp(pipe_string, STATS_COMMAND) == 0) {
