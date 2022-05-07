@@ -48,9 +48,6 @@ void start_edge_server(edge_server *server_config, int server_shm_position, int 
     sem_wait(mutex_servers);
     server_config->server_pid = getpid();
     performance_mode = server_config->performance_mode;
-    sem_post(mutex_servers);
-
-    sem_wait(mutex_servers);
     snprintf(log_message, LOG_MESSAGE_SIZE, 
                                 "INFO: Edge Server: \'%s\' Created",
                                 server_config->name);
