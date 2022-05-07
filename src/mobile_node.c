@@ -62,10 +62,10 @@ int main(int argc, char* argv[]) {
 
     // Generate requests
     for (i = 0; i < request_number; i++) {
-        // TODO: Request struct
-        // Populate message "data"
+        // Make the string to be sent in the named pipe
         snprintf(message_to_send, LOG_MESSAGE_SIZE / 2, "%d-%d:%d:%d", mobile_node_pid, i, request_instructions, max_execute_time);
         
+        // Write the message to the pipe
         write(fd_pipe, &message_to_send, sizeof(message_to_send));
 
         #ifdef DEBUG

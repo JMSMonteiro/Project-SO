@@ -84,14 +84,14 @@ int main(int argc, char* argv[]) {
         exit(0);
     }
 
-    // Open pipe for read + write
+    // * Open pipe for read + write
     fd_task_pipe = open(PIPE_NAME, O_RDWR);
     if (fd_task_pipe < 0) {
         perror("open(PIPE) error\n");
         exit(0);
     }
 
-    // TODO: [Final] Create Message Queue
+    // * Create Message Queue
     message_queue_id = msgget(IPC_PRIVATE, IPC_CREAT | 0777);
     if (message_queue_id < 0) {
         perror("msgget() error\n");
@@ -256,7 +256,7 @@ void handle_program_finish(int signum) {
     printf("All processes finished\n");
     #endif
 
-    // TODO: Log not executed tasks
+    // TODO: Log not executed tasks (Log with the PID showing)
 
     display_stats(0);
 
@@ -279,7 +279,7 @@ void handle_program_finish(int signum) {
                                                 (long)program_configuration->maintenance_manager_pid);
     #endif
 
-    // * Close / Shutdown Pthread stuff
+    // * Close / Shutdown Pthread
     pthread_mutex_destroy(&program_configuration->change_performance_mode_mutex);
     pthread_mutexattr_destroy(&program_configuration->mutex_attr);
     pthread_cond_destroy(&program_configuration->change_performance_mode);
@@ -349,8 +349,7 @@ void load_config(char *file_name) {
         exit(-1);
     }
 
-    // ! Important
-    // TODO: [Intermediate] Create Shared Memory
+    // ? Shared memory
     /*
     * In struct prog_config, remove the field edge_server *servers
     * Instead, create shared memory with: 
@@ -361,7 +360,6 @@ void load_config(char *file_name) {
     printf("Creating shared memory!\n");
     #endif
 
-    // ? Note to self: Do I really need this?
     // Copied from factory_main.c PL4 Ex5
     if ((shmkey = ftok(".", getpid())) == (key_t) -1){
         perror("IPC error: ftok\n");

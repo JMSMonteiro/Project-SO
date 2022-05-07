@@ -137,7 +137,7 @@ void *maintenance_thread(void* server_ind) {
         // ? Guarantees that at least one server is running
         sem_wait(&maintenance_limiter);
         
-        // TODO: GENERATE MESSAGE TO ALERT SERVER FOR MAINTENANCE
+        // ? GENERATE MESSAGE TO ALERT SERVER FOR MAINTENANCE
         message.stop_flag = 1;
         message.maintenance_time = maintenance_time;
         msgsnd(message_queue_id, &message, sizeof(maintenance_message) - sizeof(long), 0);
@@ -157,7 +157,7 @@ void *maintenance_thread(void* server_ind) {
         
         nanosleep(&request, &remaining);
 
-        // TODO: GENERATE MESSAGE TO ALERT SERVER TO RESUME WORK
+        // ? GENERATE MESSAGE TO ALERT SERVER TO RESUME WORK
         message.stop_flag = 0;
         msgsnd(message_queue_id, &message, sizeof(maintenance_message) - sizeof(long), 0);
 
