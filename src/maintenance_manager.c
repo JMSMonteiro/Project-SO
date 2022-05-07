@@ -83,6 +83,7 @@ void maintenance_manager() {
 
 void handle_maintenance_mngr_shutdown(int signum) {
     int i;
+
     #ifdef DEBUG
     if (signum == SIGUSR1) {
         printf("Maintenance Manager received signal \"SIGUSR1\"\n");
@@ -93,6 +94,9 @@ void handle_maintenance_mngr_shutdown(int signum) {
     maintenance_manager_running = 0;
 
     for (i = 0; i < server_number; i++) {
+        pthread_mutex_lock(&servers[server_indexes[i]].edge_server_mutex);
+        pthread_cond_signal(&servers[server_indexes[i]].edge_stopped);
+        pthread_mutex_unlock(&servers[server_indexes[i]].edge_server_mutex);
         pthread_join(maint_mngr_threads[i], NULL);
     }
 
@@ -137,12 +141,24 @@ void *maintenance_thread(void* server_ind) {
         // ? Guarantees that at least one server is running
         sem_wait(&maintenance_limiter);
         
-        // ? GENERATE MESSAGE TO ALERT SERVER FOR MAINTENANCE
+        // * GENERATE MESSAGE TO ALERT SERVER FOR MAINTENANCE
         message.stop_flag = 1;
         message.maintenance_time = maintenance_time;
         msgsnd(message_queue_id, &message, sizeof(maintenance_message) - sizeof(long), 0);
 
+        // * Servers were shutting down in between message communications and maintenance manager was 
+        // * sometimes getting blocked on condition variable, this way that doesn't happen
+        sem_wait(mutex_servers);
+        if (servers[server_index].is_shutting_down) {
+            sem_post(mutex_servers);
+            sem_post(&maintenance_limiter);
+            break;
+        }
+        sem_post(mutex_servers);
         // TODO: WAIT FOR SERVER TO BE ON "STOPPED" MODE
+        pthread_mutex_lock(&servers[server_index].edge_server_mutex);
+        pthread_cond_wait(&servers[server_index].edge_stopped, &servers[server_index].edge_server_mutex);
+        pthread_mutex_unlock(&servers[server_index].edge_server_mutex);
         
         #ifdef DEBUG
         printf("\t\t\tMaintenance Manager [SERVER %d]: Maintaining for %ds\n", server_index, maintenance_time);
@@ -157,7 +173,7 @@ void *maintenance_thread(void* server_ind) {
         
         nanosleep(&request, &remaining);
 
-        // ? GENERATE MESSAGE TO ALERT SERVER TO RESUME WORK
+        // * GENERATE MESSAGE TO ALERT SERVER TO RESUME WORK
         message.stop_flag = 0;
         msgsnd(message_queue_id, &message, sizeof(maintenance_message) - sizeof(long), 0);
 

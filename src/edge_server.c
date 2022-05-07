@@ -171,6 +171,10 @@ void handle_edge_shutdown(int signum) {
 
     pthread_join(performance_checker, NULL);
 
+    pthread_mutex_lock(&servers[server_index].edge_server_mutex);
+    pthread_cond_broadcast(&servers[server_index].edge_stopped);
+    pthread_mutex_unlock(&servers[server_index].edge_server_mutex);
+
     pthread_mutex_destroy(&edge_server_thread_mutex);
 
     #ifdef DEBUG
@@ -216,6 +220,10 @@ void *edge_thread (void* p) {
             #ifdef DEBUG
             printf("\t[THREAD] with [POWER] = %d [STOPPING]!\n", settings.processing_power);
             #endif
+            pthread_mutex_lock(&servers[server_index].edge_server_mutex);
+            pthread_cond_broadcast(&servers[server_index].edge_stopped);
+            pthread_mutex_unlock(&servers[server_index].edge_server_mutex);
+
             pthread_mutex_lock(&edge_server_thread_mutex);
             pthread_cond_wait(&end_of_maintenance_cond, &edge_server_thread_mutex);
             pthread_mutex_unlock(&edge_server_thread_mutex);
@@ -234,6 +242,9 @@ void *edge_thread (void* p) {
             #ifdef DEBUG
             printf("\tThread with %d POWER working\n", settings.processing_power);
             #endif
+            // TODO: Need to update task remaining MIPS
+            // TODO: After task termination, if (server_needs_maintenance) => broadcast cond var
+            // TODO: 
             nanosleep(&request, &remaining);
         }
     }

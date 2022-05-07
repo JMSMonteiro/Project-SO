@@ -21,6 +21,10 @@ typedef struct {
     int tasks_executed;
     int maintenance_operation_performed;
     pid_t server_pid;
+    pthread_cond_t edge_stopped;
+    pthread_condattr_t edge_cond_attr;
+    pthread_mutex_t edge_server_mutex;
+    pthread_mutexattr_t edge_mutex_attr;
 } edge_server;
 
 typedef struct {

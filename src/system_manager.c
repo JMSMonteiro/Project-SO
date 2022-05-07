@@ -217,6 +217,7 @@ void start_shutdown_routine(int signum) {
 }
 
 void handle_program_finish(int signum) {
+    int server_number, i;
     #ifdef DEBUG
     printf("handle_program_finish() <=> System manager\n");
     if (signum == SIGINT) {
@@ -280,10 +281,25 @@ void handle_program_finish(int signum) {
     #endif
 
     // * Close / Shutdown Pthread
+    sem_wait(mutex_config);
+
     pthread_mutex_destroy(&program_configuration->change_performance_mode_mutex);
     pthread_mutexattr_destroy(&program_configuration->mutex_attr);
     pthread_cond_destroy(&program_configuration->change_performance_mode);
     pthread_condattr_destroy(&program_configuration->cond_attr);
+
+    server_number = program_configuration->edge_server_number;
+
+    sem_post(mutex_config);
+
+    sem_wait(mutex_servers);
+    for (i = 0; i < server_number; i++) {
+        pthread_mutex_destroy(&servers[i].edge_server_mutex);
+        pthread_mutexattr_destroy(&servers[i].edge_mutex_attr);
+        pthread_cond_destroy(&servers[i].edge_stopped);
+        pthread_condattr_destroy(&servers[i].edge_cond_attr);
+    }
+    sem_post(mutex_servers);
 
     // * Unlink semaphores
     sem_unlink(MUTEX_LOGGER);
@@ -421,6 +437,15 @@ void load_config(char *file_name) {
         servers[i].is_shutting_down = 0;
         servers[i].maintenance_operation_performed = 0;
         servers[i].performance_mode = 1;
+
+        pthread_condattr_init(&servers[i].edge_cond_attr);
+        pthread_condattr_setpshared(&servers[i].edge_cond_attr, PTHREAD_PROCESS_SHARED);
+        pthread_cond_init(&servers[i].edge_stopped, &servers[i].edge_cond_attr);
+
+        pthread_mutexattr_init(&servers[i].edge_mutex_attr);
+        pthread_mutexattr_setpshared(&servers[i].edge_mutex_attr, PTHREAD_PROCESS_SHARED);
+        pthread_mutex_init(&servers[i].edge_server_mutex, &servers[i].edge_mutex_attr);
+
         
         // Read each line and divide it by the comma ","
         word = strtok(line, ",");
