@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <time.h>
 #include <wait.h>
 
 #include "task_manager.h"
@@ -23,13 +24,16 @@
 pthread_t scheduler_id;
 pthread_t dispatcher_id;
 pthread_mutex_t task_manager_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t new_task_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t terminate_task_mngr_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t new_task_cond = PTHREAD_COND_INITIALIZER;
 fd_set read_set;
 
 int is_program_running = 1;
 char pipe_string[(LOG_MESSAGE_SIZE / 2)];
 int *unnamed_pipes;
 static int server_number;
+static int fastest_server_mips = -1;
 
 void task_manager() {
     int i;
@@ -63,7 +67,17 @@ void task_manager() {
         if (fork() == 0) {
             start_edge_server(&servers[i], i, server_number, unnamed_pipes);
         }
+        if (fastest_server_mips == -1 || 
+                    (fastest_server_mips < servers[i].v_cpu1 || 
+                     fastest_server_mips < servers[i].v_cpu2)) {
+            fastest_server_mips = servers[i].v_cpu1 > servers[i].v_cpu2
+                                ? servers[i].v_cpu1 
+                                : servers[i].v_cpu2;
+        }
     }
+    #ifdef DEBUG
+    printf("[TASK MANAGER] SLOWEST SERVER MIPS = %d\n", fastest_server_mips);
+    #endif
 
     for (i = 0; i < server_number; i++) {
         close(unnamed_pipes[(i * 2)]);
@@ -104,29 +118,126 @@ void task_manager() {
                     pipe_task_message = strtok(NULL, ":");
                     task_received.exec_time = atoi(pipe_task_message);
 
+                    task_received.priority = -1;
+
+                    add_task_to_queue(task_received);
+
                     #ifdef DEBUG
-                    printf("[TASK MNGR]Received task: ID: %s | %d MIPS | %d Exec time\n", task_received.task_id, task_received.mips, task_received.exec_time);
+                    printf("[TASK MNGR]Received task: ID: %s | %d MIPS | %d Exec time\n", 
+                            task_received.task_id, 
+                            task_received.mips, 
+                            task_received.exec_time);
                     #endif
                 }
                 else if (strcmp(pipe_string, STATS_COMMAND) == 0) {
                     // * Signal System manager to print stats
-                    snprintf(log_message, LOG_MESSAGE_SIZE, "COMMAND: Received command: \'%s\'", pipe_string);
+                    snprintf(log_message, LOG_MESSAGE_SIZE, 
+                            "COMMAND: Received command: \'%s\'", 
+                            pipe_string);
                     handle_log(log_message);
                     kill(system_manager_pid, SIGUSR2);
                 }
                 else if (strcmp(pipe_string, EXIT_COMMAND) == 0) {
                     // * Signal System manager to shut down
-                    snprintf(log_message, LOG_MESSAGE_SIZE, "COMMAND: Received command: \'%s\'", pipe_string);
+                    snprintf(log_message, LOG_MESSAGE_SIZE, 
+                            "COMMAND: Received command: \'%s\'", 
+                            pipe_string);
                     handle_log(log_message);
                     kill(system_manager_pid, SIGUSR1);
                 } 
                 else {
-                    snprintf(log_message, LOG_MESSAGE_SIZE, "COMMAND: Received Unknown command: \'%s\'", pipe_string);
+                    snprintf(log_message, LOG_MESSAGE_SIZE, 
+                            "COMMAND: Received Unknown command: \'%s\'", 
+                            pipe_string);
                     handle_log(log_message);
                 }
             }
         }
     }
+}
+
+void add_task_to_queue(task_struct task) {
+    char log_message[LOG_MESSAGE_SIZE];
+    // Timestamps task with time it was added to queue
+    task.arrived_at = time(NULL); 
+
+    sem_wait(mutex_tasks);
+    if (task_queue->occupied_positions == task_queue->size) {
+        // Drop task + Log it was dropped
+        snprintf(log_message, LOG_MESSAGE_SIZE, 
+                "WARNING: Task with ID: \'%s\' dropped, task queue full!", 
+                task.task_id);
+        handle_log(log_message);
+        sem_post(mutex_tasks);
+        // Even if queue is full, check if all tasks are still valid
+        pthread_mutex_lock(&new_task_mutex);
+        pthread_cond_signal(&new_task_cond);
+        pthread_mutex_unlock(&new_task_mutex);
+        return;
+    }
+
+    task_queue->task_list[task_queue->occupied_positions] = task; // append at the end
+    task_queue->occupied_positions++;
+
+    sem_post(mutex_tasks);
+
+    pthread_mutex_lock(&new_task_mutex);
+    pthread_cond_signal(&new_task_cond);
+    pthread_mutex_unlock(&new_task_mutex);
+}
+
+
+// ! Make sure mutex is active before function call 
+void remove_task_at_index(int index) {
+    int i, j;
+    for (i = index, j = index + 1; i < (task_queue->size - 1); i++, j++) {
+        task_queue->task_list[i] = task_queue->task_list[j];
+    }
+}
+
+void update_task_priorities() {
+    int i, task_mips, task_execution_time, task_min_finish_time;
+    time_t current_time, task_arrival;
+    char log_message[LOG_MESSAGE_SIZE];
+
+    current_time = time(NULL);
+
+    sem_wait(mutex_tasks);
+    for (i = 0; i < task_queue->occupied_positions; i++) {
+        task_mips = task_queue->task_list[i].mips;
+        task_arrival = task_queue->task_list[i].arrived_at;
+        task_execution_time = task_queue->task_list[i].exec_time;
+        task_min_finish_time = (current_time + (task_mips / fastest_server_mips 
+                                + (task_mips % fastest_server_mips ? 1 : 0)));
+        
+        // * condition 1: current time - arrived_at > exec_time => Task exec time has expired
+        // TODO: Get condition 2 on dispatcher instead of scheduler
+        // * condition 2: if the time the fastest vcpu takes to execute the task + the current time
+        // *                are > exec time => task cannot be performed on time => Expired
+        if (current_time - task_arrival > task_execution_time
+                || ( task_min_finish_time > task_arrival + task_execution_time)) {
+            // Remove task from queue - Execution time has passed
+            snprintf(log_message, LOG_MESSAGE_SIZE, 
+                    "WARNING: task \'%s\' removed - Exceeded execution time", 
+                    task_queue->task_list[i].task_id);
+            remove_task_at_index(i);
+            task_queue->occupied_positions--; // Freed one spot
+            #ifdef DEBUG
+            printf("[UPDATER] Deleted a task at %d!\n", i);
+            #endif
+            if (i > 0) {
+                i--;
+            }
+        }
+        else {
+            task_queue->task_list[i].priority = task_min_finish_time 
+                                                - (task_arrival + task_execution_time) >= 1 ? 
+                                                    task_min_finish_time 
+                                                    - (task_arrival + task_execution_time) 
+                                                    : 1;
+        }
+    }
+    sem_post(mutex_tasks);
 }
 
 void handle_task_mngr_shutdown(int signum) {
@@ -168,6 +279,10 @@ void handle_task_mngr_shutdown(int signum) {
     pthread_cond_broadcast(&terminate_task_mngr_cond);
     pthread_mutex_unlock(&task_manager_thread_mutex);
     
+    pthread_mutex_lock(&new_task_mutex);
+    pthread_cond_broadcast(&new_task_cond);
+    pthread_mutex_unlock(&new_task_mutex);
+
     #ifdef DEBUG
     printf("TASK MANAGER => \tPRE \"Join Threads\"\n");
     #endif
@@ -181,6 +296,7 @@ void handle_task_mngr_shutdown(int signum) {
     #endif
 
     pthread_mutex_destroy(&task_manager_thread_mutex);
+    pthread_mutex_destroy(&new_task_mutex);
 
     for(i = 0; i < server_number * 2; i++) {
         close(unnamed_pipes[i]);
@@ -197,19 +313,20 @@ void* scheduler(void *p) {
     printf("I'm a thread! my PID => %lu\t[SCHEDULER]\n", scheduler_id);
     #endif
 
-    pthread_mutex_lock(&task_manager_thread_mutex);
+    pthread_mutex_lock(&new_task_mutex);
     while (is_program_running) {
-        pthread_cond_wait(&terminate_task_mngr_cond, &task_manager_thread_mutex);
+        pthread_cond_wait(&new_task_cond, &new_task_mutex);
         #ifdef DEBUG
-        printf("\t\tI'm IN THE CONDITION VARIABLE - SCHEDULER\n");
-        #endif  
+        printf("[SCHEDULER] I've received a new task!\n");
+        #endif
+        
+        update_task_priorities();        
+        
     }
-    pthread_mutex_unlock(&task_manager_thread_mutex);
+    pthread_mutex_unlock(&new_task_mutex);
+    
     #ifdef DEBUG
     printf("\t\tSCHEDULER - Unlocking mutex\n");
-    #endif    
-
-    #ifdef DEBUG
     printf("\t\tExiting thread: SCHEDULER\n");
     #endif
 
@@ -222,6 +339,12 @@ void* dispatcher(void *p) {
     #ifdef DEBUG
     printf("I'm a thread! my PID => %lu\t[DISPATCHER]\n", dispatcher_id);
     #endif
+
+    // TODO: if (!servers_available) => condition variable
+    // TODO: select task with highest priority (and can be done in the time expected)
+    // TODO: send task to edge server
+    // TODO: remove task from array
+    // TODO: go back to start
 
     pthread_mutex_lock(&task_manager_thread_mutex);
     while (is_program_running) {

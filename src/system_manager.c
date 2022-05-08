@@ -27,16 +27,18 @@
 #define MUTEX_CONFIG "MUTEX_CONFIG"
 #define MUTEX_SERVERS "MUTEX_SERVERS"
 #define MUTEX_STATS "MUTEX_STATS"
+#define MUTEX_TASKS "MUTEX_TASKS"
 
 // Variables Below
 int shmid;
 int fd_task_pipe;
 int message_queue_id;
-sem_t *mutex_config, *mutex_servers, *mutex_stats;
+sem_t *mutex_config, *mutex_servers, *mutex_stats, *mutex_tasks;
 key_t shmkey;
 prog_config *program_configuration;
 edge_server *servers;
 statistics *program_stats;
+tasks_queue_info *task_queue;
 
 
 int main(int argc, char* argv[]) {
@@ -149,6 +151,12 @@ void start_semaphores() {
     sem_unlink(MUTEX_STATS);
     if ((mutex_stats = sem_open(MUTEX_STATS, O_CREAT | O_EXCL, 0777, 1)) < 0) {
         perror("sem_open() Error - MUTEX_STATS\n");
+        exit(-1);
+    }
+   
+    sem_unlink(MUTEX_TASKS);
+    if ((mutex_tasks = sem_open(MUTEX_TASKS, O_CREAT | O_EXCL, 0777, 1)) < 0) {
+        perror("sem_open() Error - MUTEX_TASKS\n");
         exit(-1);
     }
 }
@@ -301,11 +309,16 @@ void handle_program_finish(int signum) {
     }
     sem_post(mutex_servers);
 
+    sem_wait(mutex_tasks);
+    free(task_queue->task_list);
+    sem_post(mutex_tasks);
+
     // * Unlink semaphores
     sem_unlink(MUTEX_LOGGER);
     sem_unlink(MUTEX_CONFIG);
     sem_unlink(MUTEX_SERVERS);
     sem_unlink(MUTEX_STATS);
+    sem_unlink(MUTEX_TASKS);
 
     // * Close pipe
     close(fd_task_pipe);
@@ -385,6 +398,7 @@ void load_config(char *file_name) {
 
     shmid = shmget(shmkey, sizeof(prog_config) 
                         + sizeof(statistics)
+                        + sizeof(tasks_queue_info)
                         + (sizeof(edge_server) * edge_server_number) 
                         , IPC_CREAT | 0777);
     if (shmid < 1) {
@@ -424,7 +438,8 @@ void load_config(char *file_name) {
     sem_post(mutex_config);
 
     program_stats = (statistics *) (program_configuration + 1);
-    servers = (edge_server *) (program_stats + 1);
+    task_queue = (tasks_queue_info *) (program_stats + 1);
+    servers = (edge_server *) (task_queue + 1);
 
     // Lock servers SHM area
     sem_wait(mutex_servers);
@@ -479,6 +494,12 @@ void load_config(char *file_name) {
 
     sem_post(mutex_stats);
     // Unlock Stats SHM area
+
+    sem_wait(mutex_tasks);
+    task_queue->task_list = malloc(sizeof(task_struct) * queue_pos);
+    task_queue->occupied_positions = 0;
+    task_queue->size = queue_pos;
+    sem_post(mutex_tasks);
 
 
     #ifdef DEBUG
