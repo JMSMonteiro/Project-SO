@@ -194,6 +194,10 @@ void *performance_mode_checker () {
         sem_wait(mutex_config);
         performance_mode = program_configuration->current_performance_mode;
         sem_post(mutex_config);
+
+        sem_wait(mutex_servers);
+        servers[server_index].performance_mode = performance_mode;
+        sem_post(mutex_servers);
         
         pthread_mutex_lock(&edge_server_thread_mutex);
         pthread_cond_broadcast(&high_performance_mode_cond);
@@ -224,9 +228,25 @@ void *edge_thread (void* p) {
             pthread_cond_broadcast(&servers[server_index].edge_stopped);
             pthread_mutex_unlock(&servers[server_index].edge_server_mutex);
 
+            if (!settings.is_high_performance) {
+                sem_wait(mutex_servers);
+                servers[server_index].performance_mode = 0; // Stopped
+                sem_post(mutex_servers);
+            }
+
             pthread_mutex_lock(&edge_server_thread_mutex);
             pthread_cond_wait(&end_of_maintenance_cond, &edge_server_thread_mutex);
             pthread_mutex_unlock(&edge_server_thread_mutex);
+
+            if (!settings.is_high_performance) {
+                sem_wait(mutex_servers);
+                servers[server_index].performance_mode = performance_mode;
+                sem_post(mutex_servers);
+
+                pthread_mutex_lock(&edge_server_thread_mutex);
+                pthread_cond_broadcast(&high_performance_mode_cond);
+                pthread_mutex_unlock(&edge_server_thread_mutex);
+            }
             #ifdef DEBUG
             printf("\t\t[THREAD] with [POWER] = %d [RESUMING]!\n", settings.processing_power);
             #endif
