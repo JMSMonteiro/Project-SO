@@ -39,7 +39,7 @@ prog_config *program_configuration;
 edge_server *servers;
 statistics *program_stats;
 tasks_queue_info *task_queue;
-
+task_struct *backup_mem_adress;
 
 int main(int argc, char* argv[]) {
     sigset_t blocked_signals;
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
     sigdelset(&blocked_signals, SIGUSR1);
     sigdelset(&blocked_signals, SIGUSR2);
 
-    sigprocmask(SIG_SETMASK, &blocked_signals, NULL);
+    // sigprocmask(SIG_SETMASK, &blocked_signals, NULL);
 
     // ? End of signal Blocking
 
@@ -265,7 +265,7 @@ void handle_program_finish(int signum) {
     printf("All processes finished\n");
     #endif
 
-    // TODO: Log not executed tasks (Log with the PID showing)
+    // Log not executed tasks (Log with the PID showing) [Done on task_manager]
 
     display_stats(0);
 
@@ -291,16 +291,24 @@ void handle_program_finish(int signum) {
     // * Close / Shutdown Pthread
     sem_wait(mutex_config);
 
+    // printf("SYSTEM MANAGER => \tPRE \"CONFIG MUTEX DESTRUCTION\"\n");
+
+    pthread_mutex_destroy(&program_configuration->server_available_for_task_mutex);
     pthread_mutex_destroy(&program_configuration->change_performance_mode_mutex);
     pthread_mutexattr_destroy(&program_configuration->mutex_attr);
+    pthread_cond_destroy(&program_configuration->server_available_for_task);
     pthread_cond_destroy(&program_configuration->change_performance_mode);
     pthread_condattr_destroy(&program_configuration->cond_attr);
 
     server_number = program_configuration->edge_server_number;
 
+    // printf("SYSTEM MANAGER => \tPOST \"CONFIG MUTEX DESTRUCTION\"\n");
+
     sem_post(mutex_config);
 
+    // printf("SYSTEM MANAGER => \tPRE \"MUTEX SERVERS\"\n");
     sem_wait(mutex_servers);
+    // printf("SYSTEM MANAGER => \tPRE \"SERVER DESTRUCTION\"\n");
     for (i = 0; i < server_number; i++) {
         pthread_mutex_destroy(&servers[i].edge_server_mutex);
         pthread_mutexattr_destroy(&servers[i].edge_mutex_attr);
@@ -308,10 +316,15 @@ void handle_program_finish(int signum) {
         pthread_condattr_destroy(&servers[i].edge_cond_attr);
     }
     sem_post(mutex_servers);
+    // printf("SYSTEM MANAGER => \tPOST \"SERVER MUTEX DESTRUCTION\"\n");
 
+    // printf("SYSTEM MANAGER => \tPRE \"TASK DESTRUCTION\"\n");
     sem_wait(mutex_tasks);
+    // printf("SYSTEM MANAGER => \tDURING \"TASK DESTRUCTION\"\n");
     free(task_queue->task_list);
     sem_post(mutex_tasks);
+    
+    // printf("SYSTEM MANAGER => \tPOST \"TASK DESTRUCTION\"\n");
 
     // * Unlink semaphores
     sem_unlink(MUTEX_LOGGER);
@@ -424,15 +437,17 @@ void load_config(char *file_name) {
     program_configuration->edge_server_number = edge_server_number;
     program_configuration->servers_fully_booted = 0;
     //Performance modes = 1 <-> Default | 2  <-> High performance
-    program_configuration->current_performance_mode = 1;
+    program_configuration->current_performance_mode = 1;    
 
     pthread_condattr_init(&program_configuration->cond_attr);
     pthread_condattr_setpshared(&program_configuration->cond_attr, PTHREAD_PROCESS_SHARED);
     pthread_cond_init(&program_configuration->change_performance_mode, &program_configuration->cond_attr);
+    pthread_cond_init(&program_configuration->server_available_for_task, &program_configuration->cond_attr);
 
     pthread_mutexattr_init(&program_configuration->mutex_attr);
     pthread_mutexattr_setpshared(&program_configuration->mutex_attr, PTHREAD_PROCESS_SHARED);
     pthread_mutex_init(&program_configuration->change_performance_mode_mutex, &program_configuration->mutex_attr);
+    pthread_mutex_init(&program_configuration->server_available_for_task_mutex, &program_configuration->mutex_attr);
 
     // Unlock config memory area
     sem_post(mutex_config);
@@ -452,6 +467,8 @@ void load_config(char *file_name) {
         servers[i].is_shutting_down = 0;
         servers[i].maintenance_operation_performed = 0;
         servers[i].performance_mode = 1;
+        servers[i].available_for_tasks = 0;
+
 
         pthread_condattr_init(&servers[i].edge_cond_attr);
         pthread_condattr_setpshared(&servers[i].edge_cond_attr, PTHREAD_PROCESS_SHARED);
@@ -497,6 +514,7 @@ void load_config(char *file_name) {
 
     sem_wait(mutex_tasks);
     task_queue->task_list = malloc(sizeof(task_struct) * queue_pos);
+    backup_mem_adress = task_queue->task_list;
     task_queue->occupied_positions = 0;
     task_queue->size = queue_pos;
     sem_post(mutex_tasks);

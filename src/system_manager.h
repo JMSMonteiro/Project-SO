@@ -20,6 +20,7 @@ typedef struct {
     int is_shutting_down;
     int tasks_executed;
     int maintenance_operation_performed;
+    int available_for_tasks;
     pid_t server_pid;
     pthread_cond_t edge_stopped;
     pthread_condattr_t edge_cond_attr;
@@ -37,8 +38,10 @@ typedef struct {
     pid_t task_manager_pid;
     pid_t maintenance_manager_pid;
     pthread_cond_t change_performance_mode;
+    pthread_cond_t server_available_for_task;
     pthread_condattr_t cond_attr;
     pthread_mutex_t change_performance_mode_mutex;
+    pthread_mutex_t server_available_for_task_mutex;
     pthread_mutexattr_t mutex_attr;
 } prog_config;
 
