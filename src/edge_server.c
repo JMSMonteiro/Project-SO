@@ -338,7 +338,7 @@ void *edge_thread (void* p) {
             pthread_mutex_unlock(&edge_server_thread_mutex);
 
             sem_wait(mutex_servers);
-            servers[server_index].available_for_tasks++;
+            servers[server_index].available_for_tasks = performance_mode;
             sem_post(mutex_servers);
 
             #ifdef DEBUG
@@ -415,11 +415,11 @@ void process_task(thread_settings settings) {
 
         task_2.priority = -1;
     }
-    // printf("\t[PROCESSING](SERVER #%d) Task => Sleeping for %f\n", server_index + 1, time_in_int + (time_in_float - time_in_int));
     nanosleep(&request, &remaining);
 
     sem_wait(mutex_servers);
     servers[server_index].tasks_executed++;
+    servers[server_index].available_for_tasks++;
     sem_post(mutex_servers);
 
     sem_wait(mutex_stats);

@@ -189,6 +189,10 @@ void add_task_to_queue(task_struct task) {
     pthread_mutex_lock(&new_task_mutex);
     pthread_cond_broadcast(&new_task_cond);
     pthread_mutex_unlock(&new_task_mutex);
+
+    pthread_mutex_lock(&program_configuration->monitor_variables_mutex);
+    pthread_cond_signal(&program_configuration->monitor_task_scheduled);
+    pthread_mutex_unlock(&program_configuration->monitor_variables_mutex);
 }
 
 
@@ -226,12 +230,8 @@ void update_task_priorities() {
         task_min_finish_time = (current_time + (task_mips / fastest_server_mips 
                                 + (task_mips % fastest_server_mips ? 1 : 0)));
         
-        // * condition 1: current time - arrived_at > exec_time => Task exec time has expired
-        // TODO: Get condition 2 on dispatcher instead of scheduler
-        // * condition 2: if the time the fastest vcpu takes to execute the task + the current time
-        // *                are > exec time => task cannot be performed on time => Expired
+        // * condition: current time - arrived_at > exec_time => Task exec time has expired
         if (current_time - task_arrival > task_execution_time) {
-                // || ( task_min_finish_time > task_arrival + task_execution_time)) {
             // Remove task from queue - Execution time has passed
             snprintf(log_message, LOG_MESSAGE_SIZE, 
                     "WARNING: task \'%s\' removed - Exceeded execution time", 
@@ -307,6 +307,11 @@ void handle_task_mngr_shutdown(int signum) {
     pthread_cond_broadcast(&program_configuration->server_available_for_task);
     pthread_mutex_unlock(&program_configuration->server_available_for_task_mutex);
 
+    pthread_mutex_lock(&program_configuration->monitor_variables_mutex);
+    pthread_cond_broadcast(&program_configuration->monitor_task_scheduled);
+    pthread_cond_broadcast(&program_configuration->monitor_task_dispatched);
+    pthread_mutex_unlock(&program_configuration->monitor_variables_mutex);
+
     #ifdef DEBUG
     printf("TASK MANAGER => \tPRE \"Join Threads\"\n");
     #endif
@@ -339,7 +344,7 @@ void handle_task_mngr_shutdown(int signum) {
     }
 
     sem_wait(mutex_stats);
-    program_stats->total_tasks_not_executed = task_queue->occupied_positions;
+    program_stats->total_tasks_not_executed += task_queue->occupied_positions;
     sem_post(mutex_stats);
     sem_post(mutex_tasks);
 
@@ -437,11 +442,17 @@ void* dispatcher(void *p) {
             task_execution_time = task_queue->task_list[i].exec_time;
             task_min_finish_time = (current_time + (task_mips / fastest_server_mips 
                                 + (task_mips % fastest_server_mips ? 1 : 0)));
+            // * condition: if the time the fastest vcpu takes to execute the task + the current time
+            // * are > exec time => task cannot be performed on time => Expired
             if ( task_min_finish_time > task_arrival + task_execution_time) {
                 // if Task can't be done on time, remove it from queue
                 remove_task_at_index(i);
                 task_queue->occupied_positions--;
                 i--;
+                // printf("[DISPATCHER] Removed expired task\n");
+                sem_wait(mutex_stats);
+                program_stats->total_tasks_not_executed++;
+                sem_post(mutex_stats);
             }
             if (highest_priority_task == -1 || task_queue->task_list[i].priority < highest_priority_task) {
                 // Get the lowest priority number (higher priority) task
@@ -463,12 +474,21 @@ void* dispatcher(void *p) {
         // printf("[DISPATCHER] Writing a task to pipe\n");
         // printf("[TASK MANAGER] Server #%d ready for task | printing to pipe %d\n", server_index, (server_index * 2) + 1);
         // printf("[TASK MANAGER] Sending Task: %s:%d:%d\n", task_name, task_mips, task_exec);
+        // ! DISPATCHING TASK
         write(unnamed_pipes[(server_index * 2) + 1], &message_to_send, sizeof(message_to_send));
+
+        sem_wait(mutex_stats);
+        program_stats->total_wait_time += (current_time - task_queue->task_list[highest_priority_task_index].arrived_at);
+        sem_post(mutex_stats);
 
         remove_task_at_index(highest_priority_task_index);
         task_queue->occupied_positions--;
         
         sem_post(mutex_tasks);
+        
+        pthread_mutex_lock(&program_configuration->monitor_variables_mutex);
+        pthread_cond_signal(&program_configuration->monitor_task_dispatched);
+        pthread_mutex_unlock(&program_configuration->monitor_variables_mutex);
 
         sleep(1);
     }

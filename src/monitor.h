@@ -5,5 +5,6 @@
 
 void monitor();
 void handle_monitor_shutdown(int signum);
+void swap_performance_mode();
 
 #endif

@@ -34,21 +34,26 @@ typedef struct {
     int edge_server_number;
     int servers_fully_booted;
     int current_performance_mode; // 0 = Stopped | 1 = Normal | 2 = High Performance
+    int simulator_shutting_down;
     pid_t monitor_pid;
     pid_t task_manager_pid;
     pid_t maintenance_manager_pid;
     pthread_cond_t change_performance_mode;
     pthread_cond_t server_available_for_task;
+    pthread_cond_t monitor_task_dispatched;
+    pthread_cond_t monitor_task_scheduled;
     pthread_condattr_t cond_attr;
     pthread_mutex_t change_performance_mode_mutex;
     pthread_mutex_t server_available_for_task_mutex;
+    pthread_mutex_t monitor_variables_mutex;
     pthread_mutexattr_t mutex_attr;
 } prog_config;
 
 typedef struct {
     int total_tasks_executed;
     int total_tasks_not_executed;
-    int avg_response_time; //tempo desde que a tarefa chegou até começar a ser executada
+    long total_wait_time;
+    double avg_response_time; //tempo desde que a tarefa chegou até começar a ser executada
 } statistics;
 
 typedef struct {
@@ -70,6 +75,8 @@ typedef struct {
     task_struct *task_list;
     int size;
     int occupied_positions;
+    time_t newest_task_arrival;
+    // TODO: use this ^
 } tasks_queue_info;
 
 extern sem_t *mutex_logger;

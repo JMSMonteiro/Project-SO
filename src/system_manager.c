@@ -39,7 +39,6 @@ prog_config *program_configuration;
 edge_server *servers;
 statistics *program_stats;
 tasks_queue_info *task_queue;
-task_struct *backup_mem_adress;
 
 int main(int argc, char* argv[]) {
     sigset_t blocked_signals;
@@ -192,7 +191,7 @@ void display_stats(int signum) {
     handle_log(stats_message);
     
     // * AVG response time to each task (time from arrival to execution)
-    snprintf(stats_message, LOG_MESSAGE_SIZE, "STATS: Average response time was: %d ms.", program_stats->avg_response_time);
+    snprintf(stats_message, LOG_MESSAGE_SIZE, "STATS: Average response time was: %.2f s.", (double)program_stats->total_wait_time / program_stats->total_tasks_executed);
     handle_log(stats_message);
     
     sem_wait(mutex_servers);
@@ -234,6 +233,14 @@ void handle_program_finish(int signum) {
     #endif
 
     handle_log("INFO: Starting shutdown routine, please wait");
+    sem_wait(mutex_config);
+    program_configuration->simulator_shutting_down = 1;
+    sem_post(mutex_config);
+
+    pthread_mutex_lock(&program_configuration->monitor_variables_mutex);
+    pthread_cond_broadcast(&program_configuration->monitor_task_scheduled);
+    pthread_cond_broadcast(&program_configuration->monitor_task_dispatched);
+    pthread_mutex_unlock(&program_configuration->monitor_variables_mutex);
 
     // * Signal other processes that they need to shutdown
     sem_wait(mutex_config);
@@ -295,9 +302,12 @@ void handle_program_finish(int signum) {
 
     pthread_mutex_destroy(&program_configuration->server_available_for_task_mutex);
     pthread_mutex_destroy(&program_configuration->change_performance_mode_mutex);
+    pthread_mutex_destroy(&program_configuration->monitor_variables_mutex);
     pthread_mutexattr_destroy(&program_configuration->mutex_attr);
     pthread_cond_destroy(&program_configuration->server_available_for_task);
     pthread_cond_destroy(&program_configuration->change_performance_mode);
+    pthread_cond_destroy(&program_configuration->monitor_task_scheduled);
+    pthread_cond_destroy(&program_configuration->monitor_task_dispatched);
     pthread_condattr_destroy(&program_configuration->cond_attr);
 
     server_number = program_configuration->edge_server_number;
@@ -402,14 +412,14 @@ void load_config(char *file_name) {
     printf("Creating shared memory!\n");
     #endif
 
-    // Copied from factory_main.c PL4 Ex5
-    if ((shmkey = ftok(".", getpid())) == (key_t) -1){
-        perror("IPC error: ftok\n");
-        exit(1);
-    };
-    // End of copied code
+    // // Copied from factory_main.c PL4 Ex5
+    // if ((shmkey = ftok(".", getpid())) == (key_t) -1){
+    //     perror("IPC error: ftok\n");
+    //     exit(1);
+    // };
+    // // End of copied code
 
-    shmid = shmget(shmkey, sizeof(prog_config) 
+    shmid = shmget(IPC_PRIVATE, sizeof(prog_config) 
                         + sizeof(statistics)
                         + sizeof(tasks_queue_info)
                         + (sizeof(edge_server) * edge_server_number) 
@@ -438,16 +448,20 @@ void load_config(char *file_name) {
     program_configuration->servers_fully_booted = 0;
     //Performance modes = 1 <-> Default | 2  <-> High performance
     program_configuration->current_performance_mode = 1;    
+    program_configuration->simulator_shutting_down = 0;    
 
     pthread_condattr_init(&program_configuration->cond_attr);
     pthread_condattr_setpshared(&program_configuration->cond_attr, PTHREAD_PROCESS_SHARED);
     pthread_cond_init(&program_configuration->change_performance_mode, &program_configuration->cond_attr);
     pthread_cond_init(&program_configuration->server_available_for_task, &program_configuration->cond_attr);
+    pthread_cond_init(&program_configuration->monitor_task_scheduled, &program_configuration->cond_attr);
+    pthread_cond_init(&program_configuration->monitor_task_dispatched, &program_configuration->cond_attr);
 
     pthread_mutexattr_init(&program_configuration->mutex_attr);
     pthread_mutexattr_setpshared(&program_configuration->mutex_attr, PTHREAD_PROCESS_SHARED);
     pthread_mutex_init(&program_configuration->change_performance_mode_mutex, &program_configuration->mutex_attr);
     pthread_mutex_init(&program_configuration->server_available_for_task_mutex, &program_configuration->mutex_attr);
+    pthread_mutex_init(&program_configuration->monitor_variables_mutex, &program_configuration->mutex_attr);
 
     // Unlock config memory area
     sem_post(mutex_config);
@@ -507,6 +521,7 @@ void load_config(char *file_name) {
     // ? Initialize stats variables
     program_stats->avg_response_time = 0;
     program_stats->total_tasks_executed = 0;
+    program_stats->total_wait_time = 0;
     program_stats->total_tasks_not_executed = 0;
 
     sem_post(mutex_stats);
@@ -514,9 +529,9 @@ void load_config(char *file_name) {
 
     sem_wait(mutex_tasks);
     task_queue->task_list = malloc(sizeof(task_struct) * queue_pos);
-    backup_mem_adress = task_queue->task_list;
     task_queue->occupied_positions = 0;
     task_queue->size = queue_pos;
+    task_queue->newest_task_arrival = -1;
     sem_post(mutex_tasks);
 
 
