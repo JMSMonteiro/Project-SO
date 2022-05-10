@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
     sigdelset(&blocked_signals, SIGUSR1);
     sigdelset(&blocked_signals, SIGUSR2);
 
-    // sigprocmask(SIG_SETMASK, &blocked_signals, NULL);
+    sigprocmask(SIG_SETMASK, &blocked_signals, NULL);
 
     // ? End of signal Blocking
 
