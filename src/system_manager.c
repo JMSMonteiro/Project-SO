@@ -197,7 +197,7 @@ void display_stats(int signum) {
     handle_log(stats_message);
     
     // * AVG response time to each task (time from arrival to execution)
-    snprintf(stats_message, LOG_MESSAGE_SIZE, "STATS: Average response time was: %.2f s.", (double)program_stats->total_wait_time / program_stats->total_tasks_executed);
+    snprintf(stats_message, LOG_MESSAGE_SIZE, "STATS: Average response time was: %.2f s.", (double)program_stats->total_wait_time / (program_stats->total_tasks_executed ? program_stats->total_tasks_executed : 1));
     handle_log(stats_message);
     
     sem_wait(mutex_servers);
