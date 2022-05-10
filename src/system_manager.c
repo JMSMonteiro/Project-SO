@@ -541,7 +541,7 @@ void load_config(char *file_name) {
     task_queue->task_list = malloc(sizeof(task_struct) * queue_pos);
     task_queue->occupied_positions = 0;
     task_queue->size = queue_pos;
-    task_queue->newest_task_arrival = -1;
+    task_queue->time_to_process_task = 0;
     sem_post(mutex_tasks);
 
 

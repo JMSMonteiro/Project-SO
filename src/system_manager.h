@@ -75,7 +75,7 @@ typedef struct {
     task_struct *task_list;
     int size;
     int occupied_positions;
-    time_t newest_task_arrival;
+    time_t time_to_process_task;
     // TODO: use this ^
 } tasks_queue_info;
 

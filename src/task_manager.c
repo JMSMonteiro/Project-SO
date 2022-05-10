@@ -481,6 +481,8 @@ void* dispatcher(void *p) {
         program_stats->total_wait_time += (current_time - task_queue->task_list[highest_priority_task_index].arrived_at);
         sem_post(mutex_stats);
 
+        task_queue->time_to_process_task = current_time - task_queue->task_list[highest_priority_task_index].arrived_at;
+
         remove_task_at_index(highest_priority_task_index);
         task_queue->occupied_positions--;
         

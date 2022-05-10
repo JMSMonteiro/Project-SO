@@ -22,7 +22,7 @@ static int monitor_performance_mode;
 */
 
 void monitor() {
-    int upper_task_trigger, lower_task_trigger;
+    int upper_task_trigger, lower_task_trigger, max_wait;
     handle_log("INFO: Monitor Started");
 
     signal(SIGINT, SIG_IGN);
@@ -36,6 +36,7 @@ void monitor() {
     monitor_performance_mode = program_configuration->current_performance_mode;
     upper_task_trigger = (program_configuration->queue_pos * UPPER_TRIGGER_PERCENTAGE) / 100;
     lower_task_trigger = (program_configuration->queue_pos * LOWER_TRIGGER_PERCENTAGE) / 100;
+    max_wait = program_configuration->max_wait;
 
     sem_post(mutex_config);
 
@@ -44,7 +45,7 @@ void monitor() {
         if (program_configuration->simulator_shutting_down) {
             // printf("[MONITOR] Leaving while loop\n");
             sem_post(mutex_config);
-            return;
+            exit(0);
         }
         sem_post(mutex_config);
         if (monitor_performance_mode == 1) { // * Regular mode
@@ -57,7 +58,7 @@ void monitor() {
             // printf("[MONITOR] Woken at performance mode 1\n");
             
             sem_wait(mutex_tasks);
-            if (task_queue->occupied_positions > upper_task_trigger) {
+            if (task_queue->occupied_positions > upper_task_trigger && task_queue->time_to_process_task > max_wait) {
                 handle_log("MONITOR: Swapping servers to high performance mode");
                 swap_performance_mode();
             }
