@@ -22,6 +22,9 @@ static int server_number;
 static int booted_servers;
 int maintenance_manager_running = 1;
 
+static pthread_mutex_t shutdown_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t shutdown_cond = PTHREAD_COND_INITIALIZER;
+
 /*
 ? Generates maintenance messages, get responses and manage maintnance
 */
@@ -71,13 +74,17 @@ void maintenance_manager() {
 
     srand(getpid());
 
-    while(1) {
+    // while(1) {
         // * Maintenance Interval || Maintenance time => Random [1 - 5] seconds
         // ? mngr => Server -> Going to maintenance ops
         // ? Server => mngr -> Ready for intervention
         // ? Server = Stopped
         // ? mngr => Server -> Restart working
-    }    
+    // }    
+    pthread_mutex_lock(&shutdown_mutex);
+    pthread_cond_wait(&shutdown_cond, &shutdown_mutex);
+    pthread_mutex_unlock(&shutdown_mutex);
+
     exit(0);
 }
 
@@ -103,6 +110,9 @@ void handle_maintenance_mngr_shutdown(int signum) {
     free(maint_mngr_threads);
     free(server_indexes);
 
+    pthread_mutex_lock(&shutdown_mutex);
+    pthread_cond_signal(&shutdown_cond);
+    pthread_mutex_unlock(&shutdown_mutex);
 
     exit(0);
 }

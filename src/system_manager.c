@@ -39,6 +39,8 @@ prog_config *program_configuration;
 edge_server *servers;
 statistics *program_stats;
 tasks_queue_info *task_queue;
+static pthread_mutex_t shutdown_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t shutdown_cond = PTHREAD_COND_INITIALIZER;
 
 int main(int argc, char* argv[]) {
     sigset_t blocked_signals;
@@ -123,7 +125,11 @@ int main(int argc, char* argv[]) {
 
     signal_initializer();
 
-    while(1) {}
+    // while(1) {
+    pthread_mutex_lock(&shutdown_mutex);
+    pthread_cond_wait(&shutdown_cond, &shutdown_mutex);
+    pthread_mutex_unlock(&shutdown_mutex);
+    // }
     
     return 0;
 }
@@ -353,6 +359,10 @@ void handle_program_finish(int signum) {
     // * Clean memory resources
     shmdt(program_configuration);
     shmctl(shmid, IPC_RMID, NULL);
+
+    pthread_mutex_lock(&shutdown_mutex);
+    pthread_cond_signal(&shutdown_cond);
+    pthread_mutex_unlock(&shutdown_mutex);
 
     #ifdef DEBUG
     printf("Resources cleaned, exiting!\n");
