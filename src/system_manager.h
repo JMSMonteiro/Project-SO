@@ -77,7 +77,6 @@ typedef struct {
     int size;
     int occupied_positions;
     time_t time_to_process_task;
-    // TODO: use this ^
 } tasks_queue_info;
 
 extern sem_t *mutex_logger;

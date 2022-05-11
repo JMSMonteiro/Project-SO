@@ -402,12 +402,6 @@ void* dispatcher(void *p) {
     printf("I'm a thread! my PID => %lu\t[DISPATCHER]\n", dispatcher_id);
     #endif
 
-    // TODO: if (!servers_available) => condition variable
-    // TODO: select task with highest priority (and can be done in the time expected)
-    // TODO: send task to edge server
-    // TODO: remove task from array
-    // TODO: go back to start
-
     while(is_program_running) {
         server_index = -1;
         sem_wait(mutex_servers);
@@ -420,7 +414,6 @@ void* dispatcher(void *p) {
         sem_post(mutex_servers);
 
         if (server_index == -1) {
-            // TODO: Condition Var
             pthread_mutex_lock(&program_configuration->server_available_for_task_mutex);
             pthread_cond_wait(&program_configuration->server_available_for_task, 
                                 &program_configuration->server_available_for_task_mutex);
