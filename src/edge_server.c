@@ -77,27 +77,11 @@ void start_edge_server(edge_server *server_config, int server_shm_position, int 
         close(unnamed_pipes[(i * 2) + 1]);   // 1 = Write
     }
 
-    #ifdef DEBUG
-    sem_wait(mutex_servers);
-    printf("Edge Server %s with PID %d\n", server_config->name, server_config->server_pid);
-    sem_post(mutex_servers);
-    #endif
-
     // Create threads
-    #ifdef DEBUG
-    sem_wait(mutex_servers);
-    printf("\tServer %s Making thread #%d\n", server_config->name, 1);
-    sem_post(mutex_servers);
-    #endif
     t_settings[0].processing_power = vcpu_power[0];
     t_settings[0].is_high_performance = vcpu_power[0] > vcpu_power[1] ? 1 : 0;
     pthread_create(&v_cpu[0], NULL, edge_thread, &t_settings[0]);
     
-    #ifdef DEBUG
-    sem_wait(mutex_servers);
-    printf("\tServer %s Making thread #%d\n", server_config->name, 2);
-    sem_post(mutex_servers);
-    #endif
     t_settings[1].processing_power = vcpu_power[1];
     t_settings[1].is_high_performance = vcpu_power[1] > vcpu_power[0] ? 1 : 0;
     pthread_create(&v_cpu[1], NULL, edge_thread, &t_settings[1]);
@@ -119,12 +103,15 @@ void start_edge_server(edge_server *server_config, int server_shm_position, int 
         msgrcv(message_queue_id, &message_rcvd, sizeof(maintenance_message) - sizeof(long), (server_index + 1), 0);
         // * If server is going to maintenance
         if (message_rcvd.stop_flag) {
+            sem_wait(mutex_servers);
+            servers[server_index].performance_mode = 0; // Stopped
+            servers[server_index].available_for_tasks = 0; 
+            servers[server_index].maintenance_time = message_rcvd.maintenance_time; 
+            sem_post(mutex_servers);
+
+            pthread_mutex_lock(&edge_server_thread_mutex);
             server_needs_maintenance = 1;
-            snprintf(log_message, LOG_MESSAGE_SIZE, 
-                                "INFO: Server %d Stopped, going to maintenance for (%ds)",
-                                server_index,
-                                message_rcvd.maintenance_time);
-            handle_log(log_message);
+            pthread_mutex_unlock(&edge_server_thread_mutex);
             
             pthread_mutex_lock(&waiting_for_task_mutex);
             pthread_cond_broadcast(&waiting_for_task);
@@ -136,10 +123,9 @@ void start_edge_server(edge_server *server_config, int server_shm_position, int 
         }
         // * If Server is going to resume work
         else {
-            server_needs_maintenance = 0;
             snprintf(log_message, LOG_MESSAGE_SIZE, 
-                                "INFO: Server %d Maintained, going back to work",
-                                server_index);
+                                "INFO: Server #%d Maintained, going back to work",
+                                server_index + 1);
             handle_log(log_message);
 
             sem_wait(mutex_servers);
@@ -212,8 +198,10 @@ void handle_edge_shutdown(int signum) {
 
 void *pipe_reader(void* p) {
     int *unnamed_pipes = ((int *) p);
+    int vcpu_processing;
     char *pipe_task_message = NULL;
     char pipe_string[LOG_MESSAGE_SIZE / 2];
+    char log_message[LOG_MESSAGE_SIZE];
     task_struct task_received;
 
     #ifdef DEBUG
@@ -236,29 +224,27 @@ void *pipe_reader(void* p) {
 
         task_received.priority = 1;
 
-
-        sem_wait(mutex_servers);
-        servers[server_index].available_for_tasks--;
-        sem_post(mutex_servers);
-
+        pthread_mutex_lock(&edge_server_thread_mutex);
         if (task_1.priority < 0) {
             // if vcpu1 is free
             task_1 = task_received;
+            vcpu_processing = 1;
         }
         else if (task_2.priority < 0 && performance_mode == 2) {
             // if vcp1 is occupied and vcpu2 is active
             task_2 = task_received;
+            vcpu_processing = 2;
         }
+        pthread_mutex_unlock(&edge_server_thread_mutex);
+
+        snprintf(log_message, LOG_MESSAGE_SIZE, "SERVER: Server #%d - vCPU #%d - Processing task: \'%s\'", server_index + 1, vcpu_processing, task_received.task_id);
+        handle_log(log_message);
 
         pthread_mutex_lock(&waiting_for_task_mutex);
-        pthread_cond_signal(&waiting_for_task);         // TODO: maybe broadcast?
+        pthread_cond_broadcast(&waiting_for_task);
         pthread_mutex_unlock(&waiting_for_task_mutex);
     }
     
-    #ifdef DEBUG
-    printf("[PIPE READER] SHUTTING DOWN\n");
-    #endif
-
     pthread_exit(NULL);
 }
 
@@ -274,9 +260,13 @@ void *performance_mode_checker () {
         performance_mode = program_configuration->current_performance_mode;
         sem_post(mutex_config);
 
-        sem_wait(mutex_servers);
-        servers[server_index].performance_mode = performance_mode;
-        sem_post(mutex_servers);
+        pthread_mutex_lock(&edge_server_thread_mutex);
+        if (!server_needs_maintenance) {
+            sem_wait(mutex_servers);
+            servers[server_index].performance_mode = performance_mode;
+            sem_post(mutex_servers);
+        }
+        pthread_mutex_unlock(&edge_server_thread_mutex);
         
         pthread_mutex_lock(&edge_server_thread_mutex);
         pthread_cond_broadcast(&high_performance_mode_cond);
@@ -289,44 +279,50 @@ void *performance_mode_checker () {
 
 void *edge_thread (void* p) {
     thread_settings settings = *((thread_settings *) p);
-    #ifdef DEBUG
-    printf("I'm a vCPU thread | [POWER] = %d! [Performance] = %d\n", settings.processing_power, settings.is_high_performance);
-    if (settings.is_high_performance) {
-        printf("\t\tI\'m the high performance thread!\n");
-    }
-    #endif
+    char log_message[LOG_MESSAGE_SIZE];
+    int avoid_duplicated_logs = 0;
 
     while (server_is_running) {
-        // * Server going into maintenance
+        
         if (server_needs_maintenance) { 
-            #ifdef DEBUG
-            printf("\t[THREAD] with [POWER] = %d [STOPPING]!\n", settings.processing_power);
-            #endif
-            // TODO: Guarantee both treads are stopped
+            sem_wait(mutex_servers);
+            servers[server_index].available_for_tasks--;
+            sem_post(mutex_servers);
+            
             pthread_mutex_lock(&edge_server_thread_mutex);
             stopped_threads++;
             if (stopped_threads == 2) { // Signal MM that this server is stopped
+                if (avoid_duplicated_logs == 0) {
+                    avoid_duplicated_logs++;
+                    sem_wait(mutex_servers);
+                    snprintf(log_message, LOG_MESSAGE_SIZE, 
+                                    "INFO: Server #%d Stopped, going to maintenance for (%ds)",
+                                    server_index + 1,
+                                    servers[server_index].maintenance_time);
+                    handle_log(log_message);
+                    sem_post(mutex_servers);
+                }
                 pthread_mutex_lock(&servers[server_index].edge_server_mutex);
                 pthread_cond_broadcast(&servers[server_index].edge_stopped);
                 pthread_mutex_unlock(&servers[server_index].edge_server_mutex);
             }
             pthread_mutex_unlock(&edge_server_thread_mutex);
 
-            if (!settings.is_high_performance) {
-                sem_wait(mutex_servers);
-                servers[server_index].performance_mode = 0; // Stopped
-                servers[server_index].available_for_tasks = 0; 
-                sem_post(mutex_servers);
-            }
-
             pthread_mutex_lock(&edge_server_thread_mutex);
             pthread_cond_wait(&end_of_maintenance_cond, &edge_server_thread_mutex);
+            pthread_mutex_unlock(&edge_server_thread_mutex);
+
+            pthread_mutex_lock(&edge_server_thread_mutex);
+            server_needs_maintenance = 0;
             pthread_mutex_unlock(&edge_server_thread_mutex);
 
             if (!settings.is_high_performance) {
                 sem_wait(mutex_servers);
                 servers[server_index].performance_mode = performance_mode;
+                servers[server_index].available_for_tasks = performance_mode;
                 sem_post(mutex_servers);
+                
+                avoid_duplicated_logs = 0;
 
                 pthread_mutex_lock(&edge_server_thread_mutex);
                 pthread_cond_broadcast(&high_performance_mode_cond);
@@ -336,18 +332,17 @@ void *edge_thread (void* p) {
             pthread_mutex_lock(&edge_server_thread_mutex);
             stopped_threads--;
             pthread_mutex_unlock(&edge_server_thread_mutex);
-
-            sem_wait(mutex_servers);
-            servers[server_index].available_for_tasks = performance_mode;
-            sem_post(mutex_servers);
-
-            #ifdef DEBUG
-            printf("\t\t[THREAD] with [POWER] = %d [RESUMING]!\n", settings.processing_power);
-            #endif
         }
         // * Only if it's the performance thread
         else if (settings.is_high_performance == 1 && performance_mode != 2) {
-            
+            pthread_mutex_lock(&edge_server_thread_mutex);
+            if (!server_needs_maintenance) {
+                sem_wait(mutex_servers);
+                servers[server_index].available_for_tasks = performance_mode;
+                sem_post(mutex_servers);
+            }
+            pthread_mutex_unlock(&edge_server_thread_mutex);
+
             pthread_mutex_lock(&edge_server_thread_mutex);
             stopped_threads++;
             pthread_cond_wait(&high_performance_mode_cond, &edge_server_thread_mutex);
@@ -356,32 +351,21 @@ void *edge_thread (void* p) {
         }
         // * Does regular work
         else {
-
             pthread_mutex_lock(&program_configuration->server_available_for_task_mutex);
             pthread_cond_broadcast(&program_configuration->server_available_for_task);
             pthread_mutex_unlock(&program_configuration->server_available_for_task_mutex);
 
-            // TODO: Need to update task remaining MIPS
-            // TODO: After task termination, if (server_needs_maintenance) => broadcast cond var
-            
             pthread_mutex_lock(&waiting_for_task_mutex);
             pthread_cond_wait(&waiting_for_task, &waiting_for_task_mutex);
             pthread_mutex_unlock(&waiting_for_task_mutex);
 
-            // TODO: PROCESS TASK
-            if ((task_1.priority > 0 && !settings.is_high_performance)      // if it's vcpu1
-                || (task_2.priority > 0 && settings.is_high_performance)) { // if it's vcpu2
+            if ((task_1.priority > 0 && !settings.is_high_performance)      // if it's vcpu1 and has task
+                || (task_2.priority > 0 && settings.is_high_performance)) { // if it's vcpu2 and has task
                 process_task(settings);
             }
 
-            #ifdef DEBUG
-            printf("\tThread with %d POWER working\n", settings.processing_power);
-            #endif
-            // nanosleep(&request, &remaining);
         }
     }
-
-    // TODO: Insert thread logic here
 
     #ifdef DEBUG
     printf("\tExiting from vcpu thread!\n");
@@ -394,7 +378,7 @@ void process_task(thread_settings settings) {
     struct timespec remaining, request = {0, 0};
     float time_in_float;
     int time_in_int;
-    
+    pthread_mutex_lock(&edge_server_thread_mutex);
     if (!settings.is_high_performance) {
         // vcpu1
         time_in_int = task_1.mips / settings.processing_power;
@@ -402,9 +386,7 @@ void process_task(thread_settings settings) {
         time_in_float = (float) task_1.mips / settings.processing_power;
 
         request.tv_nsec = (time_in_float - time_in_int) * NANO_TO_SECOND;
-        // printf("[TEST] %d - %f = %f\n", time_in_int, time_in_float, (time_in_float - time_in_int) * NANO_TO_SECOND);
-
-        task_1.priority = -1;
+        // printf("\t[PROCESSING](SERVER #%d - T1) Task \'%s\' => Sleeping for %f\n", server_index + 1, task_1.task_id ,time_in_int + (time_in_float - time_in_int));
     }
     else {
         time_in_int = task_2.mips / settings.processing_power;
@@ -412,17 +394,30 @@ void process_task(thread_settings settings) {
         time_in_float = (float) task_2.mips / settings.processing_power;
 
         request.tv_nsec = (time_in_float - time_in_int) * NANO_TO_SECOND;
-
-        task_2.priority = -1;
+        // printf("\t[PROCESSING](SERVER #%d - T2) Task \'%s\' => Sleeping for %f\n", server_index + 1, task_2.task_id ,time_in_int + (time_in_float - time_in_int));
     }
+    pthread_mutex_unlock(&edge_server_thread_mutex);
     nanosleep(&request, &remaining);
-
-    sem_wait(mutex_servers);
-    servers[server_index].tasks_executed++;
-    servers[server_index].available_for_tasks++;
-    sem_post(mutex_servers);
 
     sem_wait(mutex_stats);
     program_stats->total_tasks_executed++;
     sem_post(mutex_stats);
+
+    // printf("\t[PROCESSING](SERVER #%d - T%d)  => Woke up - Remaining = %lus - %lu ns\n", server_index + 1, settings.is_high_performance ? 2 : 1, remaining.tv_sec, remaining.tv_nsec);
+
+    sem_wait(mutex_servers);
+    servers[server_index].tasks_executed++;
+
+    pthread_mutex_lock(&edge_server_thread_mutex);
+    if (!server_needs_maintenance) {
+        servers[server_index].available_for_tasks++;
+    }
+
+    if (!settings.is_high_performance) {
+        task_1.priority = -1;
+    } else {
+        task_2.priority = -1;
+    }
+    pthread_mutex_unlock(&edge_server_thread_mutex);
+    sem_post(mutex_servers);
 }

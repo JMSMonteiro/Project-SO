@@ -55,8 +55,7 @@ void monitor() {
             pthread_cond_wait(&program_configuration->monitor_task_scheduled, &program_configuration->monitor_variables_mutex);
             pthread_mutex_unlock(&program_configuration->monitor_variables_mutex);
 
-            // printf("[MONITOR] Woken at performance mode 1\n");
-            
+            // printf("\t\t\t[MONITOR] Woken at performance mode 1\n");
             sem_wait(mutex_tasks);
             if (task_queue->occupied_positions > upper_task_trigger && task_queue->time_to_process_task > max_wait) {
                 handle_log("MONITOR: Swapping servers to high performance mode");
@@ -77,37 +76,6 @@ void monitor() {
             sem_post(mutex_tasks);
 
         } 
-        // // ! IMPORTANT
-        // // TODO Remove Sleep, use a thread to verify SHM status and do the changes
-        // sleep(5);
-
-        // sem_wait(mutex_config);
-        // program_configuration->current_performance_mode = 2;
-        // sem_post(mutex_config);
-
-        // #ifdef DEBUG
-        // printf("[MONITOR] => HIGH PERFORMANCE ACTIVATE! (%d)\n", program_configuration->current_performance_mode);
-        // #endif
-
-        // pthread_mutex_lock(&program_configuration->change_performance_mode_mutex);
-        // pthread_cond_broadcast(&program_configuration->change_performance_mode);
-        // pthread_mutex_unlock(&program_configuration->change_performance_mode_mutex);
-
-        // // ! IMPORTANT
-        // // TODO Remove Sleep, use a thread to verify SHM status and do the changes
-        // sleep(5);
-
-        // sem_wait(mutex_config);
-        // program_configuration->current_performance_mode = 1;
-        // sem_post(mutex_config);
-
-        // #ifdef DEBUG
-        // printf("[MONITOR] => Regular mode!\n");
-        // #endif
-
-        // pthread_mutex_lock(&program_configuration->change_performance_mode_mutex);
-        // pthread_cond_broadcast(&program_configuration->change_performance_mode);
-        // pthread_mutex_unlock(&program_configuration->change_performance_mode_mutex);
     }
 }
 

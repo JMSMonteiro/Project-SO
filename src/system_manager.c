@@ -109,16 +109,19 @@ int main(int argc, char* argv[]) {
     if (fork() == 0) {
         handle_log("INFO: Creating Process: 'Task Manager'");
         task_manager();
+        exit(0); // Just to be safe, altough all processes should call exit on their respective code
     }
 
     if (fork() == 0) {
         handle_log("INFO: Creating Process: 'Monitor'");
         monitor();
+        exit(0); // Just to be safe, altough all processes should call exit on their respective code
     }
 
     if (fork() == 0) {
         handle_log("INFO: Creating Process: 'Maintenance Manager'");
         maintenance_manager();
+        exit(0); // Just to be safe, altough all processes should call exit on their respective code
     }
 
     // ? Insert monitor call here ?

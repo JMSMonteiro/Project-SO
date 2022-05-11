@@ -21,6 +21,7 @@ typedef struct {
     int tasks_executed;
     int maintenance_operation_performed;
     int available_for_tasks;
+    int maintenance_time;
     pid_t server_pid;
     pthread_cond_t edge_stopped;
     pthread_condattr_t edge_cond_attr;

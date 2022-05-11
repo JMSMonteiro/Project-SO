@@ -173,6 +173,7 @@ void add_task_to_queue(task_struct task) {
                 "WARNING: Task with ID: \'%s\' dropped, task queue full!", 
                 task.task_id);
         handle_log(log_message);
+        program_stats->total_tasks_not_executed++;
         sem_post(mutex_tasks);
         // Even if queue is full, check if all tasks are still valid
         pthread_mutex_lock(&new_task_mutex);
@@ -238,6 +239,10 @@ void update_task_priorities() {
                     task_queue->task_list[i].task_id);
             remove_task_at_index(i);
             task_queue->occupied_positions--; // Freed one spot
+            
+            sem_wait(mutex_stats);
+            program_stats->total_tasks_not_executed++;
+            sem_post(mutex_stats);
             #ifdef DEBUG
             printf("[UPDATER] Deleted a task at %d!\n", i);
             #endif
@@ -407,7 +412,7 @@ void* dispatcher(void *p) {
         server_index = -1;
         sem_wait(mutex_servers);
         for (i = 0; i < server_number; i++) {
-            if (servers[i].available_for_tasks > 0) {
+            if (servers[i].available_for_tasks > 0 && servers[i].performance_mode > 0) {
                 server_index = i;
                 break;
             }
@@ -475,7 +480,12 @@ void* dispatcher(void *p) {
         // printf("[TASK MANAGER] Server #%d ready for task | printing to pipe %d\n", server_index, (server_index * 2) + 1);
         // printf("[TASK MANAGER] Sending Task: %s:%d:%d\n", task_name, task_mips, task_exec);
         // ! DISPATCHING TASK
+        // printf("[TASK MNGR]Sending to Unnamed pipe: %s\n", message_to_send);
         write(unnamed_pipes[(server_index * 2) + 1], &message_to_send, sizeof(message_to_send));
+
+        sem_wait(mutex_servers);
+        servers[server_index].available_for_tasks--;
+        sem_post(mutex_servers);
 
         sem_wait(mutex_stats);
         program_stats->total_wait_time += (current_time - task_queue->task_list[highest_priority_task_index].arrived_at);
@@ -489,10 +499,10 @@ void* dispatcher(void *p) {
         sem_post(mutex_tasks);
         
         pthread_mutex_lock(&program_configuration->monitor_variables_mutex);
+        pthread_cond_signal(&program_configuration->monitor_task_scheduled);
         pthread_cond_signal(&program_configuration->monitor_task_dispatched);
         pthread_mutex_unlock(&program_configuration->monitor_variables_mutex);
 
-        sleep(1);
     }
 
     // printf("[DISPATCHER] Exiting!\n");
