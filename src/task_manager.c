@@ -238,6 +238,7 @@ void update_task_priorities() {
                     "WARNING: task \'%s\' removed - Exceeded execution time", 
                     task_queue->task_list[i].task_id);
             remove_task_at_index(i);
+            handle_log(log_message);
             task_queue->occupied_positions--; // Freed one spot
             
             sem_wait(mutex_stats);
@@ -392,6 +393,7 @@ void* dispatcher(void *p) {
     char task_name[TASK_ID_SIZE];
     int task_mips, task_exec;
     char message_to_send[LOG_MESSAGE_SIZE / 2];
+    char log_message[LOG_MESSAGE_SIZE];
     int i, highest_priority_task_index, highest_priority_task;
     time_t task_arrival, current_time;
     int task_min_finish_time, task_max_finish_time, task_execution_time;
@@ -446,6 +448,10 @@ void* dispatcher(void *p) {
             // * are > exec time => task cannot be performed on time => Expired
             if ( task_min_finish_time > task_arrival + task_execution_time) {
                 // if Task can't be done on time, remove it from queue
+                snprintf(log_message, LOG_MESSAGE_SIZE, 
+                    "WARNING: task \'%s\' removed - Can\'t be done on time", 
+                    task_queue->task_list[i].task_id);
+                handle_log(log_message);
                 remove_task_at_index(i);
                 task_queue->occupied_positions--;
                 i--;
@@ -476,7 +482,6 @@ void* dispatcher(void *p) {
         task_execution_time = task_queue->task_list[highest_priority_task_index].exec_time;
         task_max_finish_time = (current_time + (task_mips / servers[server_index].v_cpu1 
                                 + (task_mips % servers[server_index].v_cpu1 ? 1 : 0)));
-        old_server_index = server_index;
         if (servers[server_index].performance_mode == 1 && task_max_finish_time > task_arrival + task_execution_time) {
         old_server_index = server_index;
             for (i = 0; i < server_number; i++) {

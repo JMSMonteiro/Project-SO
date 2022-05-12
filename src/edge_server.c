@@ -198,7 +198,6 @@ void handle_edge_shutdown(int signum) {
 
 void *pipe_reader(void* p) {
     int *unnamed_pipes = ((int *) p);
-    int vcpu_processing;
     int accepted_task = 0;
     char *pipe_task_message = NULL;
     char pipe_string[LOG_MESSAGE_SIZE / 2];
@@ -212,7 +211,6 @@ void *pipe_reader(void* p) {
 
     while(server_is_running) {
         accepted_task = 0;
-        vcpu_processing = 0;
 
         read(unnamed_pipes[server_index * 2], &pipe_string, sizeof(pipe_string));
         // printf("\t[SERVER] Server #%d received task => %s\n", server_index + 1, pipe_string);
@@ -253,7 +251,6 @@ void *pipe_reader(void* p) {
             #endif
 
             task_1 = task_received;
-            vcpu_processing = 1;
             accepted_task = 1;
         }
         if (!accepted_task && task_2.priority < 0 && performance_mode == 2 
@@ -262,22 +259,21 @@ void *pipe_reader(void* p) {
                             <= task_received.arrived_at + task_received.exec_time)) {
             // if vcp1 is occupied and vcpu2 is active
             task_2 = task_received;
-            vcpu_processing = 2;
             accepted_task = 1;
         }
         pthread_mutex_unlock(&edge_server_thread_mutex);
         sem_post(mutex_servers);
 
         if (accepted_task) {
-            snprintf(log_message, LOG_MESSAGE_SIZE, "SERVER: Server #%d - vCPU #%d - Processing task: \'%s\'", server_index + 1, vcpu_processing, task_received.task_id);
-            handle_log(log_message);
-
             pthread_mutex_lock(&waiting_for_task_mutex);
             pthread_cond_broadcast(&waiting_for_task);
             pthread_mutex_unlock(&waiting_for_task_mutex);
         }
         else {
-            printf("[TESTING] Server #%d discarded task \'%s\'!\n", server_index + 1, task_received.task_id);
+            snprintf(log_message, LOG_MESSAGE_SIZE, 
+                    "WARNING: task \'%s\' removed - Can\'t be done on time", 
+                    task_received.task_id);
+            handle_log(log_message);
             sem_wait(mutex_stats);
             program_stats->total_tasks_not_executed++;
             sem_post(mutex_stats);
@@ -395,7 +391,6 @@ void *edge_thread (void* p) {
                 || (task_2.priority > 0 && settings.is_high_performance)) { // if it's vcpu2 and has task
                 process_task(settings);
             }
-            // printf("[TESTING] Server done processing task!\n");
         }
     }
 
@@ -408,6 +403,7 @@ void *edge_thread (void* p) {
 
 void process_task(thread_settings settings) {
     struct timespec remaining, request = {0, 0};
+    char log_message[LOG_MESSAGE_SIZE];
     float time_in_float;
     int time_in_int;
     pthread_mutex_lock(&edge_server_thread_mutex);
@@ -418,7 +414,6 @@ void process_task(thread_settings settings) {
         time_in_float = (float) task_1.mips / settings.processing_power;
 
         request.tv_nsec = (time_in_float - time_in_int) * NANO_TO_SECOND;
-        // printf("\t[PROCESSING](SERVER #%d - T1) Task \'%s\' => Sleeping for %f\n", server_index + 1, task_1.task_id ,time_in_int + (time_in_float - time_in_int));
     }
     else {
         time_in_int = task_2.mips / settings.processing_power;
@@ -426,16 +421,16 @@ void process_task(thread_settings settings) {
         time_in_float = (float) task_2.mips / settings.processing_power;
 
         request.tv_nsec = (time_in_float - time_in_int) * NANO_TO_SECOND;
-        // printf("\t[PROCESSING](SERVER #%d - T2) Task \'%s\' => Sleeping for %f\n", server_index + 1, task_2.task_id ,time_in_int + (time_in_float - time_in_int));
     }
     pthread_mutex_unlock(&edge_server_thread_mutex);
     nanosleep(&request, &remaining);
 
+    snprintf(log_message, LOG_MESSAGE_SIZE, "SERVER: Server #%d - vCPU #%d - Finished task: \'%s\'", server_index + 1, settings.is_high_performance ? 2 : 1, settings.is_high_performance ? task_2.task_id : task_1.task_id);
+    handle_log(log_message);
+
     sem_wait(mutex_stats);
     program_stats->total_tasks_executed++;
     sem_post(mutex_stats);
-
-    // printf("\t[PROCESSING](SERVER #%d - T%d)  => Woke up - Remaining = %lus - %lu ns\n", server_index + 1, settings.is_high_performance ? 2 : 1, remaining.tv_sec, remaining.tv_nsec);
 
     sem_wait(mutex_servers);
     servers[server_index].tasks_executed++;
