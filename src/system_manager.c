@@ -305,8 +305,14 @@ void handle_program_finish(int signum) {
     pthread_mutexattr_destroy(&program_configuration->mutex_attr);
     pthread_cond_destroy(&program_configuration->server_available_for_task);
     pthread_cond_destroy(&program_configuration->change_performance_mode);
+
+    // printf("SYSTEM MANAGER => \tDURING (1) \"CONFIG MUTEX DESTRUCTION\"\n");
+    pthread_cond_broadcast(&program_configuration->monitor_task_scheduled);
+    // printf("SYSTEM MANAGER => \tDURING (1.5) \"CONFIG MUTEX DESTRUCTION\"\n");
     pthread_cond_destroy(&program_configuration->monitor_task_scheduled);
+    // printf("SYSTEM MANAGER => \tDURING (2) \"CONFIG MUTEX DESTRUCTION\"\n");
     pthread_cond_destroy(&program_configuration->monitor_task_dispatched);
+    // printf("SYSTEM MANAGER => \tDURING (3) \"CONFIG MUTEX DESTRUCTION\"\n");
     pthread_condattr_destroy(&program_configuration->cond_attr);
 
     server_number = program_configuration->edge_server_number;
