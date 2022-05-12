@@ -165,7 +165,6 @@ void *maintenance_thread(void* server_ind) {
             break;
         }
         sem_post(mutex_servers);
-        // TODO: WAIT FOR SERVER TO BE ON "STOPPED" MODE
         pthread_mutex_lock(&servers[server_index].edge_server_mutex);
         pthread_cond_wait(&servers[server_index].edge_stopped, &servers[server_index].edge_server_mutex);
         pthread_mutex_unlock(&servers[server_index].edge_server_mutex);
