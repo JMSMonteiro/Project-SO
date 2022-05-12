@@ -52,7 +52,15 @@ int main(int argc, char* argv[]) {
     // * Logic from here 
     mobile_node_pid = getpid();
 
-    request.tv_nsec = request_interval * CONVERT_NS_TO_MS;
+    if (request_interval >= 1000) {
+        request.tv_sec = request_interval / 1000;
+        request.tv_nsec = (request_interval % 1000) * CONVERT_NS_TO_MS;
+    }
+    else {
+        request.tv_sec = 0;
+        request.tv_nsec = request_interval * CONVERT_NS_TO_MS;
+    }
+
 
     // Open pipe
     if ((fd_pipe = open(PIPE_NAME, O_RDWR)) < 0) {
