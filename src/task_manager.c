@@ -478,6 +478,7 @@ void* dispatcher(void *p) {
                                 + (task_mips % servers[server_index].v_cpu1 ? 1 : 0)));
         old_server_index = server_index;
         if (servers[server_index].performance_mode == 1 && task_max_finish_time > task_arrival + task_execution_time) {
+        old_server_index = server_index;
             for (i = 0; i < server_number; i++) {
                 task_max_finish_time = (current_time + (task_mips / servers[i].v_cpu1 
                                 + (task_mips % servers[i].v_cpu1 ? 1 : 0)));
@@ -487,7 +488,7 @@ void* dispatcher(void *p) {
                 }
             }
         }
-        if (old_server_index == server_index) {
+        if (old_server_index != -1 && old_server_index == server_index) {
             // printf("[TEST] Exiting here\n");
             sem_post(mutex_servers);
             sem_post(mutex_tasks);
