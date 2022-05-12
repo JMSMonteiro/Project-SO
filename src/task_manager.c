@@ -394,8 +394,9 @@ void* dispatcher(void *p) {
     char message_to_send[LOG_MESSAGE_SIZE / 2];
     int i, highest_priority_task_index, highest_priority_task;
     time_t task_arrival, current_time;
-    int task_min_finish_time, task_execution_time;
+    int task_min_finish_time, task_max_finish_time, task_execution_time;
     int server_index = 0;
+    int old_server_index = 0;
     handle_log("INFO: Dispatcher Started");
 
     #ifdef DEBUG
@@ -404,6 +405,7 @@ void* dispatcher(void *p) {
 
     while(is_program_running) {
         server_index = -1;
+        old_server_index = -1;
         sem_wait(mutex_servers);
         for (i = 0; i < server_number; i++) {
             if (servers[i].available_for_tasks > 0 && servers[i].performance_mode > 0) {
@@ -463,12 +465,42 @@ void* dispatcher(void *p) {
             sem_post(mutex_tasks);
             continue;
         }
+
+        // ? task_max_finish_time => time_t when the task will end being processed
+        // ? if (task_max_finish_time <= task_arrived + task_exec) { do stuff }
+
+        // Confirm if !perf_mode && selected server slowest cpu can handle it
+        sem_wait(mutex_servers);
+        task_mips = task_queue->task_list[highest_priority_task_index].mips;
+        task_arrival = task_queue->task_list[highest_priority_task_index].arrived_at;
+        task_execution_time = task_queue->task_list[highest_priority_task_index].exec_time;
+        task_max_finish_time = (current_time + (task_mips / servers[server_index].v_cpu1 
+                                + (task_mips % servers[server_index].v_cpu1 ? 1 : 0)));
+        old_server_index = server_index;
+        if (servers[server_index].performance_mode == 1 && task_max_finish_time > task_arrival + task_execution_time) {
+            for (i = 0; i < server_number; i++) {
+                task_max_finish_time = (current_time + (task_mips / servers[i].v_cpu1 
+                                + (task_mips % servers[i].v_cpu1 ? 1 : 0)));
+                if (servers[i].available_for_tasks > 0 && servers[i].performance_mode > 0 && task_max_finish_time <= task_arrival + task_execution_time) {
+                    server_index = i;
+                    break;
+                }
+            }
+        }
+        if (old_server_index == server_index) {
+            // printf("[TEST] Exiting here\n");
+            sem_post(mutex_servers);
+            sem_post(mutex_tasks);
+            continue;
+        }
+        sem_post(mutex_servers);
+
         // printf("\t\t[DISPATCHER] Selected task: %s:%d:d", task_queue->task_list[])
 
         strcpy(task_name, task_queue->task_list[highest_priority_task_index].task_id);
         task_mips = task_queue->task_list[highest_priority_task_index].mips;
         task_exec = task_queue->task_list[highest_priority_task_index].exec_time;
-        sprintf(message_to_send, "%s:%d:%d", task_name, task_mips, task_exec);
+        sprintf(message_to_send, "%s:%d:%d:%lu:%lu", task_name, task_mips, task_exec, task_arrival, current_time);
         // printf("[DISPATCHER] Writing a task to pipe\n");
         // printf("[TASK MANAGER] Server #%d ready for task | printing to pipe %d\n", server_index, (server_index * 2) + 1);
         // printf("[TASK MANAGER] Sending Task: %s:%d:%d\n", task_name, task_mips, task_exec);
@@ -498,24 +530,5 @@ void* dispatcher(void *p) {
 
     }
 
-    // printf("[DISPATCHER] Exiting!\n");
-
-    // pthread_mutex_lock(&task_manager_thread_mutex);
-    // while (is_program_running) {
-    //     pthread_cond_wait(&terminate_task_mngr_cond, &task_manager_thread_mutex);
-        
-    //     #ifdef DEBUG
-    //     printf("\t\tI'm IN THE CONDITION VARIABLE - DISPATCHER \n");
-    //     #endif
-    // }
-    // pthread_mutex_unlock(&task_manager_thread_mutex);
-    #ifdef DEBUG
-    printf("\t\tDISPATCHER - Unlocking mutex\n");
-    #endif
-    
-    #ifdef DEBUG
-    printf("\t\tExiting thread: DISPATCHER\n");
-    #endif
-    
     pthread_exit(NULL);
 }

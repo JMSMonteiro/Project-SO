@@ -38,10 +38,10 @@ static int stopped_threads = 0;
 static pthread_t performance_checker;
 static task_struct task_1 = {"", -1, -1, -1, -1};
 static task_struct task_2 = {"", -1, -1, -1, -1};
+static thread_settings t_settings[VCPU_NUMBER];
 
 void start_edge_server(edge_server *server_config, int server_shm_position, int server_number, int *unnamed_pipes) {
     maintenance_message message_rcvd;
-    thread_settings t_settings[VCPU_NUMBER];
     char log_message[LOG_MESSAGE_SIZE];
     int vcpu_power[VCPU_NUMBER] = { server_config->v_cpu1, server_config->v_cpu2};
     int i;
@@ -199,9 +199,11 @@ void handle_edge_shutdown(int signum) {
 void *pipe_reader(void* p) {
     int *unnamed_pipes = ((int *) p);
     int vcpu_processing;
+    int accepted_task = 0;
     char *pipe_task_message = NULL;
     char pipe_string[LOG_MESSAGE_SIZE / 2];
     char log_message[LOG_MESSAGE_SIZE];
+    time_t current_time;
     task_struct task_received;
 
     #ifdef DEBUG
@@ -209,6 +211,9 @@ void *pipe_reader(void* p) {
     #endif
 
     while(server_is_running) {
+        accepted_task = 0;
+        vcpu_processing = 0;
+
         read(unnamed_pipes[server_index * 2], &pipe_string, sizeof(pipe_string));
         // printf("\t[SERVER] Server #%d received task => %s\n", server_index + 1, pipe_string);
 
@@ -222,27 +227,61 @@ void *pipe_reader(void* p) {
         pipe_task_message = strtok(NULL, ":");
         task_received.exec_time = atoi(pipe_task_message);
 
+        pipe_task_message = strtok(NULL, ":");
+        task_received.arrived_at = atol(pipe_task_message);
+
+        pipe_task_message = strtok(NULL, ":");
+        current_time = atol(pipe_task_message);
+
         task_received.priority = 1;
 
+        sem_wait(mutex_servers);
         pthread_mutex_lock(&edge_server_thread_mutex);
-        if (task_1.priority < 0) {
+        // printf("[TESTING] \'%s\' \t%lu + %d + %d <= %lu = %d | task_1.priority = %d\n",task_received.task_id, current_time, task_received.mips / t_settings[0].processing_power, task_received.mips % t_settings[0].processing_power ? 1 : 0, task_received.arrived_at + task_received.exec_time, ((current_time + (task_received.mips / t_settings[0].processing_power 
+        //                       + (task_received.mips % t_settings[0].processing_power ? 1 : 0))) 
+        //                       <= task_received.arrived_at + task_received.exec_time), task_1.priority);
+        if (task_1.priority < 0 
+                        && ((current_time + (task_received.mips / t_settings[0].processing_power 
+                            + (task_received.mips % t_settings[0].processing_power ? 1 : 0))) 
+                            <= task_received.arrived_at + task_received.exec_time)) {
             // if vcpu1 is free
+
+            #ifdef DEBUG
+            printf("[TESTING] \'%s\' \t%lu + %d + %d > %lu <= %d\n",task_received.task_id, current_time, task_received.mips / t_settings[0].processing_power, task_received.mips % t_settings[0].processing_power ? 1 : 0, task_received.arrived_at + task_received.exec_time, ((current_time + (task_received.mips / t_settings[0].processing_power 
+                              + (task_received.mips % t_settings[0].processing_power ? 1 : 0))) 
+                                <= task_received.arrived_at + task_received.exec_time));
+            #endif
+
             task_1 = task_received;
             vcpu_processing = 1;
+            accepted_task = 1;
         }
-        else if (task_2.priority < 0 && performance_mode == 2) {
+        if (!accepted_task && task_2.priority < 0 && performance_mode == 2 
+                        && ((current_time + (task_received.mips / t_settings[1].processing_power 
+                            + (task_received.mips % t_settings[1].processing_power ? 1 : 0))) 
+                            <= task_received.arrived_at + task_received.exec_time)) {
             // if vcp1 is occupied and vcpu2 is active
             task_2 = task_received;
             vcpu_processing = 2;
+            accepted_task = 1;
         }
         pthread_mutex_unlock(&edge_server_thread_mutex);
+        sem_post(mutex_servers);
 
-        snprintf(log_message, LOG_MESSAGE_SIZE, "SERVER: Server #%d - vCPU #%d - Processing task: \'%s\'", server_index + 1, vcpu_processing, task_received.task_id);
-        handle_log(log_message);
+        if (accepted_task) {
+            snprintf(log_message, LOG_MESSAGE_SIZE, "SERVER: Server #%d - vCPU #%d - Processing task: \'%s\'", server_index + 1, vcpu_processing, task_received.task_id);
+            handle_log(log_message);
 
-        pthread_mutex_lock(&waiting_for_task_mutex);
-        pthread_cond_broadcast(&waiting_for_task);
-        pthread_mutex_unlock(&waiting_for_task_mutex);
+            pthread_mutex_lock(&waiting_for_task_mutex);
+            pthread_cond_broadcast(&waiting_for_task);
+            pthread_mutex_unlock(&waiting_for_task_mutex);
+        }
+        else {
+            printf("[TESTING] Server #%d discarded task \'%s\'!\n", server_index + 1, task_received.task_id);
+            sem_wait(mutex_stats);
+            program_stats->total_tasks_not_executed++;
+            sem_post(mutex_stats);
+        }
     }
     
     pthread_exit(NULL);
@@ -266,9 +305,6 @@ void *performance_mode_checker () {
             servers[server_index].performance_mode = performance_mode;
             sem_post(mutex_servers);
         }
-        pthread_mutex_unlock(&edge_server_thread_mutex);
-        
-        pthread_mutex_lock(&edge_server_thread_mutex);
         pthread_cond_broadcast(&high_performance_mode_cond);
         pthread_mutex_unlock(&edge_server_thread_mutex);
     }
@@ -306,14 +342,11 @@ void *edge_thread (void* p) {
                 pthread_cond_broadcast(&servers[server_index].edge_stopped);
                 pthread_mutex_unlock(&servers[server_index].edge_server_mutex);
             }
-            pthread_mutex_unlock(&edge_server_thread_mutex);
 
-            pthread_mutex_lock(&edge_server_thread_mutex);
             pthread_cond_wait(&end_of_maintenance_cond, &edge_server_thread_mutex);
-            pthread_mutex_unlock(&edge_server_thread_mutex);
 
-            pthread_mutex_lock(&edge_server_thread_mutex);
             server_needs_maintenance = 0;
+            
             pthread_mutex_unlock(&edge_server_thread_mutex);
 
             if (!settings.is_high_performance) {
@@ -341,12 +374,11 @@ void *edge_thread (void* p) {
                 servers[server_index].available_for_tasks = performance_mode;
                 sem_post(mutex_servers);
             }
-            pthread_mutex_unlock(&edge_server_thread_mutex);
 
-            pthread_mutex_lock(&edge_server_thread_mutex);
             stopped_threads++;
             pthread_cond_wait(&high_performance_mode_cond, &edge_server_thread_mutex);
             stopped_threads--;
+
             pthread_mutex_unlock(&edge_server_thread_mutex);
         }
         // * Does regular work
@@ -363,7 +395,7 @@ void *edge_thread (void* p) {
                 || (task_2.priority > 0 && settings.is_high_performance)) { // if it's vcpu2 and has task
                 process_task(settings);
             }
-
+            // printf("[TESTING] Server done processing task!\n");
         }
     }
 
@@ -409,15 +441,17 @@ void process_task(thread_settings settings) {
     servers[server_index].tasks_executed++;
 
     pthread_mutex_lock(&edge_server_thread_mutex);
-    if (!server_needs_maintenance) {
-        servers[server_index].available_for_tasks++;
-    }
-
     if (!settings.is_high_performance) {
         task_1.priority = -1;
     } else {
         task_2.priority = -1;
     }
+
+    if (!server_needs_maintenance) {
+        servers[server_index].available_for_tasks++;
+    }
     pthread_mutex_unlock(&edge_server_thread_mutex);
     sem_post(mutex_servers);
+
+    return;
 }
