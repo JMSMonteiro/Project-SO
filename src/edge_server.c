@@ -23,7 +23,6 @@ typedef struct {
 } thread_settings;
 
 pthread_t v_cpu[VCPU_NUMBER];
-pthread_t performance_checker;
 pthread_t pipe_reader_thread;
 pthread_mutex_t edge_server_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t waiting_for_task_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -36,6 +35,7 @@ static int server_needs_maintenance = 0;
 static int performance_mode = 1;
 static int server_index = -1;
 static int stopped_threads = 0;
+static pthread_t performance_checker;
 static task_struct task_1 = {"", -1, -1, -1, -1};
 static task_struct task_2 = {"", -1, -1, -1, -1};
 

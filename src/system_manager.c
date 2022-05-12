@@ -30,11 +30,10 @@
 #define MUTEX_TASKS "MUTEX_TASKS"
 
 // Variables Below
-int shmid;
+static int shmid;
 int fd_task_pipe;
 int message_queue_id;
 sem_t *mutex_config, *mutex_servers, *mutex_stats, *mutex_tasks;
-key_t shmkey;
 prog_config *program_configuration;
 edge_server *servers;
 statistics *program_stats;
@@ -124,15 +123,11 @@ int main(int argc, char* argv[]) {
         exit(0); // Just to be safe, altough all processes should call exit on their respective code
     }
 
-    // ? Insert monitor call here ?
-
     signal_initializer();
 
-    // while(1) {
     pthread_mutex_lock(&shutdown_mutex);
     pthread_cond_wait(&shutdown_cond, &shutdown_mutex);
     pthread_mutex_unlock(&shutdown_mutex);
-    // }
     
     return 0;
 }
@@ -245,11 +240,6 @@ void handle_program_finish(int signum) {
     sem_wait(mutex_config);
     program_configuration->simulator_shutting_down = 1;
     sem_post(mutex_config);
-
-    pthread_mutex_lock(&program_configuration->monitor_variables_mutex);
-    pthread_cond_broadcast(&program_configuration->monitor_task_scheduled);
-    pthread_cond_broadcast(&program_configuration->monitor_task_dispatched);
-    pthread_mutex_unlock(&program_configuration->monitor_variables_mutex);
 
     // * Signal other processes that they need to shutdown
     sem_wait(mutex_config);
@@ -424,13 +414,6 @@ void load_config(char *file_name) {
     #ifdef DEBUG
     printf("Creating shared memory!\n");
     #endif
-
-    // // Copied from factory_main.c PL4 Ex5
-    // if ((shmkey = ftok(".", getpid())) == (key_t) -1){
-    //     perror("IPC error: ftok\n");
-    //     exit(1);
-    // };
-    // // End of copied code
 
     shmid = shmget(IPC_PRIVATE, sizeof(prog_config) 
                         + sizeof(statistics)

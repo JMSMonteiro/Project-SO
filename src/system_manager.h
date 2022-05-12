@@ -84,8 +84,6 @@ extern sem_t *mutex_config;
 extern sem_t *mutex_servers;
 extern sem_t *mutex_stats;
 extern sem_t *mutex_tasks;
-extern key_t shmkey;
-extern int shmid;
 extern int fd_task_pipe;
 extern int message_queue_id;
 extern prog_config *program_configuration;
