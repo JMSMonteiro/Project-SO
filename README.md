@@ -4,7 +4,7 @@ Project for operating systems class
 
 ## Grade
 
-Final grade of the project was **99%/100%**
+Final grade of the project was **99%** out of **100%**
 
 ## Intro
 
